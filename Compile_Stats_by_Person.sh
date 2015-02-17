@@ -19,9 +19,6 @@
 #4) Pull out list of genes for each chromosome
 #5) Go thru variants and get counts of variant by functional position and gene for each homologue
 
-## New Idea 2/13 ##
-
-
 ##########################################################################
 ## 1 ## Set up Paths #####################################################
 ##########################################################################

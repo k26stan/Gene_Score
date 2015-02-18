@@ -12,9 +12,8 @@
 ## PARSE COMMAND LINE #########################################
 ###############################################################
 
-
 LINE <- commandArgs(trailingOnly = TRUE)
-# LINE <- c( "/projects/janssen/Phased/20150217_Testing","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
+# LINE <- c( "/projects/janssen/Phased/20150218_Test_Genes","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
 PathToOut <- LINE[1]
 PathToPheno <- LINE[2]
 Cov_List <- LINE[3]
@@ -104,7 +103,7 @@ FULL <- EXON <- DAMG <- list()
 ## Loop Through Genes
 start_time <- proc.time()
 for ( gtx in 1:n.gtx ) {
-# for ( gtx in 1:50 ) {
+# for ( gtx in 21:25 ) {
 	## Compile Info on Gene_Transcript
 	name <- GTX_LIST[gtx]
 	chr <- gsub( "chr","", as.character( CHR[gtx] ) )
@@ -142,9 +141,9 @@ for ( gtx in 1:n.gtx ) {
 	hap <- data.frame( TAG=paste(hap[,"CHR"],hap[,"BP"],sep="_"), TYPE=hap.ind.TF, hap )
 	## Pull out Variant Positions from BIM files (& Compile to 1 file)
 	print( "Sorting Bim Files" )
-	gtx.snp.bim <- SNP.bim[ which(SNP.bim$CHR==chr & SNP.bim$BP>rng[1] & SNP.bim$BP<rng[2] ), ]
+	gtx.snp.bim <- SNP.bim[ which(SNP.bim$CHR==chr & SNP.bim$BP>=rng[1] & SNP.bim$BP<=rng[2] ), ]
 	gtx.snp.bim <- data.frame( gtx.snp.bim, TYPE=rep("snp",nrow(gtx.snp.bim)), RAW_TAG=snp.raw.tag )
-	gtx.ind.bim <- IND.bim[ which(IND.bim$CHR==chr & IND.bim$BP>rng[1] & IND.bim$BP<rng[2] ), ]
+	gtx.ind.bim <- IND.bim[ which(IND.bim$CHR==chr & IND.bim$BP>=rng[1] & IND.bim$BP<=rng[2] ), ]
 	gtx.ind.bim <- data.frame( gtx.ind.bim, TYPE=rep("ind",nrow(gtx.ind.bim)), RAW_TAG=ind.raw.tag )
 	gtx.bim <- rbind( gtx.snp.bim, gtx.ind.bim )
 	gtx.bim <- gtx.bim[ order(gtx.bim[,"BP"]), ]
@@ -165,8 +164,8 @@ for ( gtx in 1:n.gtx ) {
 	## Pull out Single-Locus Results
 	print( "Pulling out Single-Locus Results" )
 	if ( file.exists(PathToPheno) ) {
-		snp.p <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>tx_rng[1]-5000 & SNP.P$BP<tx_rng[2]+5000 ), ]
-		ind.p <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>tx_rng[1]-5000 & IND.P$BP<tx_rng[2]+5000 ), ]
+		snp.p <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>=tx_rng[1]-5000 & SNP.P$BP<=tx_rng[2]+5000 ), ]
+		ind.p <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>=tx_rng[1]-5000 & IND.P$BP<=tx_rng[2]+5000 ), ]
 		gtx.p <- rbind( snp.p, ind.p )
 		gtx.p <- gtx.p[order(gtx.p[,"BP"]),]
 		gtx.p <- data.frame( TAG=paste(gtx.p[,"CHR"],gtx.p[,"BP"],sep="_"), gtx.p )
@@ -180,8 +179,8 @@ for ( gtx in 1:n.gtx ) {
 	## Specify Location of Variant (relative to Exon/Intron/Etc)
 	print( "Specifying Variant Locations" )
 	GTX <- data.frame( GTX, LOC=rep(1,nrow(GTX)) )
-	GTX[ which( GTX[,"BP"]>tx_rng[1] & GTX[,"BP"]<tx_rng[2] ), "LOC" ] <- 2
-	GTX[ which( GTX[,"BP"]>cd_rng[1] & GTX[,"BP"]<cd_rng[2] ), "LOC" ] <- 3
+	GTX[ which( GTX[,"BP"]>=tx_rng[1] & GTX[,"BP"]<=tx_rng[2] ), "LOC" ] <- 2
+	GTX[ which( GTX[,"BP"]>=cd_rng[1] & GTX[,"BP"]<=cd_rng[2] ), "LOC" ] <- 3
 	GTX[ which( GTX[,"TAG"] %in% TAG.exon ), "LOC" ] <- 4
 	## Calculate Allele Frequencies
 	print( "Calculating MAF" )
@@ -205,37 +204,32 @@ for ( gtx in 1:n.gtx ) {
  		YLIM <- c( -1, max( 4, max(-log10(GTX[,"P_Assoc"]),na.rm=T) ) )
  	}else{ YLIM <- c(-1,1) }
 	Y <- 0
-	jpeg( paste(PathToOut,"/Plots/Gene_Map_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
-	plot(0,0,type="n", xlim=XLIM,ylim=YLIM, xlab=paste("Chromosome",chr,"Position"),ylab="-log10(p)", main=paste("Map & Single-Locus Results of:",name), yaxt="n" )
-	## Plot P-Values
-	if ( file.exists(PathToPheno) ) {
-		WHICH <- which(!is.na( GTX$P_Assoc))
-		COLS.P <- COLS.P.list[ GTX$LOC ]
-		abline( h=seq(0,YLIM[2],1), lty=2, col="grey50" )
-		abline( h=seq(-1,0,.1), lty=2, col="grey50" )
-		axis(2, at=seq(-1,YLIM[2],1) )
-		points( GTX$BP[WHICH], -log10(GTX$P_Assoc[WHICH]), col=COLS.P[WHICH], pch=c(10,16)[factor(GTX$TYPE[WHICH])], lwd=3, cex=2*(GTX$MAF[WHICH])^(1/6) )
-	}
-	## Plot Gene Borders
-	arrows( tx_rng[1],Y,tx_rng[2],Y, code=3,angle=90, lwd=5,col=COLS.gene[1] )
-	abline( h=Y, col="grey50",lwd=1 )
-	polygon( cd_rng[c(1,2,2,1)],c(-.1,-.1,.1,.1)+Y, col=COLS.gene[2],lwd=1 )
-	for ( e in 1:ex_cnt ) {
-		X_COORDS <- c( ex_b[e],ex_e[e],ex_e[e],ex_b[e] )
-		polygon( X_COORDS,c(-.2,-.2,.2,.2)+Y, col=COLS.gene[3],lwd=1 )
-	}
-	arrows( tx_rng[1],Y,tx_rng[2],Y, code=3,angle=90,length=0, lwd=5,col=COLS.gene[1] )
-	## Plot Allele Frequency
-	arrows( GTX$BP, 0, GTX$BP, -GTX$MAF, col=COLS.P, angle=90 )
-	## Plot Individual Variants on Haplotypes
-	# if ( length(HAP_1)>0 ) { arrows( HAP_1,Y-.3,HAP_1,Y, lwd=2,col=COLS[5],length=.1 ) }
-	# if ( length(HAP_2)>0 ) { arrows( HAP_2,Y+.3,HAP_2,Y, lwd=2,col=COLS[4],length=.1 ) }
-	# if ( length(intersect(HAP_1,HAP_2))>0 ) {
-	# 	arrows( intersect(HAP_1,HAP_2),Y-.3,intersect(HAP_1,HAP_2),Y, lwd=2,col=COLS[6],length=.1 )
-	# 	arrows( intersect(HAP_1,HAP_2),Y+.3,intersect(HAP_1,HAP_2),Y, lwd=2,col=COLS[6],length=.1 )
-	# }
-	# text( X_LIM[1], Y-.4, labels=name, pos=4, cex=.7)
-	dev.off()
+	PLOT_FRACTION <- 1/50
+	if ( YLIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
+		jpeg( paste(PathToOut,"/Plots/Gene_Map_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
+		plot(0,0,type="n", xlim=XLIM,ylim=YLIM, xlab=paste("Chromosome",chr,"Position"),ylab="-log10(p)", main=paste("Map & Single-Locus Results of:",name), yaxt="n" )
+		## Plot P-Values
+		if ( file.exists(PathToPheno) ) {
+			WHICH <- which(!is.na( GTX$P_Assoc))
+			COLS.P <- COLS.P.list[ GTX$LOC ]
+			abline( h=seq(0,YLIM[2],1), lty=2, col="grey50" )
+			abline( h=seq(-1,0,.1), lty=2, col="grey50" )
+			axis(2, at=seq(-1,YLIM[2],1) )
+			points( GTX$BP[WHICH], -log10(GTX$P_Assoc[WHICH]), col=COLS.P[WHICH], pch=c(10,16)[factor(GTX$TYPE[WHICH])], lwd=3, cex=2*(GTX$MAF[WHICH])^(1/6) )
+		}
+		## Plot Gene Borders
+		arrows( tx_rng[1],Y,tx_rng[2],Y, code=3,angle=90, lwd=5,col=COLS.gene[1] )
+		abline( h=Y, col="grey50",lwd=1 )
+		polygon( cd_rng[c(1,2,2,1)],c(-.1,-.1,.1,.1)+Y, col=COLS.gene[2],lwd=1 )
+		for ( e in 1:ex_cnt ) {
+			X_COORDS <- c( ex_b[e],ex_e[e],ex_e[e],ex_b[e] )
+			polygon( X_COORDS,c(-.2,-.2,.2,.2)+Y, col=COLS.gene[3],lwd=1 )
+		}
+		arrows( tx_rng[1],Y,tx_rng[2],Y, code=3,angle=90,length=0, lwd=5,col=COLS.gene[1] )
+		## Plot Allele Frequency
+		arrows( GTX$BP, 0, GTX$BP, -GTX$MAF, col=COLS.P, angle=90 )
+		dev.off()
+	} # Close Gene Map "IF"
 
 	## QQ PLOTS ##
 	print( "Plotting QQ Plot" )
@@ -246,43 +240,47 @@ for ( gtx in 1:n.gtx ) {
 		COLS.4 <- gsub("1","3",COLS)
 		LIM <- c( 0, max( 4, max(-log10(GTX[,"P_Assoc"]),na.rm=T) ) )
 		## Make Plot
-		jpeg( paste(PathToOut,"/Plots/Gene_QQ_",name,".jpeg",sep=""), height=1500,width=1500, pointsize=32)
-		plot(0,0,type="n", xlim=LIM,ylim=LIM, xlab="Expected -log10(p)",ylab="Observed -log10(p)", main=paste("QQ-Plot for:",name) )
-		## Add Lines
-		abline( h=seq(0,LIM[2],1), lty=2,lwd=1,col="grey50")
-		abline( v=seq(0,LIM[2],1), lty=2,lwd=1,col="grey50")
-		abline( 0,1, lty=1,lwd=2,col="black" )
-		## Plot Full Set
-		EXP <- -log10( 1:NUM_VARS / NUM_VARS )
-		OBS <- -log10( sort( GTX$P_Assoc ) )
-		IND <- c(1:length(EXP),length(EXP),1)
-		polygon( EXP[IND], c(OBS,EXP[c(NUM_VARS,1)]), col=COLS[1], border=COLS.4[1], density=20,angle=45 )
-		points( EXP, OBS, pch="+", col=COLS.4[1], type="o" )
-		 # Calculate Area - Trapezoid Rule
-		H_VALS <- EXP[2:NUM_VARS-1] - EXP[2:NUM_VARS]
-		B_SUM <- ( OBS[2:NUM_VARS-1]-EXP[2:NUM_VARS-1] ) + ( OBS[2:NUM_VARS]-EXP[2:NUM_VARS] )
-		AREA.traps <- .5*H_VALS*B_SUM
-		AREA <- sum( AREA.traps ) # - .5*max(EXP)^2
-		text( quantile(LIM,.8),quantile(LIM,.1), label=paste("Area:",round(AREA,3)), col=COLS.4[1], cex=1.2 )
-		GENE[gtx,"AREA"] <- AREA
-		GENE[gtx,"BEST_P"] <- 10^(min(-OBS,na.rm=T))
-		## Plot Exon Set
-		if ( NUM_EXONIC > 0 ) {
-			EXP <- -log10( 1:NUM_EXONIC / NUM_EXONIC )
-			OBS <- -log10( sort( GTX$P_Assoc[which(GTX$LOC==4)] ) )
+		PLOT_FRACTION <- 1/100
+		if ( LIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
+			jpeg( paste(PathToOut,"/Plots/Gene_QQ_",name,".jpeg",sep=""), height=1500,width=1500, pointsize=32)
+			plot(0,0,type="n", xlim=LIM,ylim=LIM, xlab="Expected -log10(p)",ylab="Observed -log10(p)", main=paste("QQ-Plot for:",name) )
+			## Add Lines
+			abline( h=seq(0,LIM[2],1), lty=2,lwd=1,col="grey50")
+			abline( v=seq(0,LIM[2],1), lty=2,lwd=1,col="grey50")
+			abline( 0,1, lty=1,lwd=2,col="black" )
+			## Plot Full Set
+			EXP <- -log10( 1:NUM_VARS / NUM_VARS )
+			OBS <- -log10( sort( GTX$P_Assoc ) )
 			IND <- c(1:length(EXP),length(EXP),1)
-			polygon( EXP[IND], c(OBS,EXP[c(NUM_EXONIC,1)]), col=COLS[2], border=COLS.4[2], density=20,angle=-45 )
-			points( EXP, OBS, pch="+", col=COLS.4[2], type="o" )	
+			polygon( EXP[IND], c(OBS,EXP[c(NUM_VARS,1)]), col=COLS[1], border=COLS.4[1], density=20,angle=45 )
+			points( EXP, OBS, pch="+", col=COLS.4[1], type="o" )
 			 # Calculate Area - Trapezoid Rule
-			H_VALS <- EXP[2:NUM_EXONIC-1] - EXP[2:NUM_EXONIC]
-			B_SUM <- ( OBS[2:NUM_EXONIC-1]-EXP[2:NUM_EXONIC-1] ) + ( OBS[2:NUM_EXONIC]-EXP[2:NUM_EXONIC] )
+			H_VALS <- EXP[2:NUM_VARS-1] - EXP[2:NUM_VARS]
+			B_SUM <- ( OBS[2:NUM_VARS-1]-EXP[2:NUM_VARS-1] ) + ( OBS[2:NUM_VARS]-EXP[2:NUM_VARS] )
 			AREA.traps <- .5*H_VALS*B_SUM
 			AREA <- sum( AREA.traps ) # - .5*max(EXP)^2
-			text( quantile(LIM,.8),quantile(LIM,.07), label=paste("Area:",round(AREA,3)), col=COLS.4[2], cex=1.2 )
-			GENE[gtx,"AREA.ex"] <- AREA
-			GENE[gtx,"BEST_P.ex"] <- 10^(min(-OBS,na.rm=T))
-		}
-		dev.off()
+			text( quantile(LIM,.7),quantile(LIM,.1), label=paste("Area:",round(AREA,3),"-",NUM_VARS,"Vars"), col=COLS.4[1], cex=1.2 )
+			GENE[gtx,"AREA"] <- AREA
+			GENE[gtx,"BEST_P"] <- 10^(min(-OBS,na.rm=T))
+			## Plot Exon Set
+			if ( NUM_EXONIC > 0 ) {
+				EXP <- -log10( 1:NUM_EXONIC / NUM_EXONIC )
+				OBS <- -log10( sort( GTX$P_Assoc[which(GTX$LOC==4)] ) )
+				IND <- c(1:length(EXP),length(EXP),1)
+				polygon( EXP[IND], c(OBS,EXP[c(NUM_EXONIC,1)]), col=COLS[2], border=COLS.4[2], density=20,angle=-45 )
+				points( EXP, OBS, pch="+", col=COLS.4[2], type="o" )	
+				 # Calculate Area - Trapezoid Rule
+				H_VALS <- EXP[2:NUM_EXONIC-1] - EXP[2:NUM_EXONIC]
+				B_SUM <- ( OBS[2:NUM_EXONIC-1]-EXP[2:NUM_EXONIC-1] ) + ( OBS[2:NUM_EXONIC]-EXP[2:NUM_EXONIC] )
+				AREA.traps <- .5*H_VALS*B_SUM
+				AREA <- sum( AREA.traps ) # - .5*max(EXP)^2
+				text( quantile(LIM,.7),quantile(LIM,.07), label=paste("Area:",round(AREA,3),"-",NUM_EXONIC,"Vars"), col=COLS.4[2], cex=1.2 )
+				GENE[gtx,"AREA.ex"] <- AREA
+				GENE[gtx,"BEST_P.ex"] <- 10^(min(-OBS,na.rm=T))
+			}
+			legend("topleft",fill=COLS,density=20,legend=c("Full","Exonic") )
+			dev.off()
+		} # Close QQ "IF"
 	}
 
 	####################################################
@@ -411,62 +409,84 @@ for ( gtx in 1:n.gtx ) {
 	 # EXON: Boxplot HET_snp & HOM_VAR_snp & HET_ind & HOM_VAR_ind all in one
 	 # FULL: PRC_PHAS_snp & PRC_PHAS_ind & PRC_COMP_HET_snp & PRC_COMP_HET_ind
 	 # EXON: PRC_PHAS_snp & PRC_PHAS_ind & PRC_COMP_HET_snp & PRC_COMP_HET_ind
-	print( "Plotting Stats" )
-	## Try all in one
-	jpeg( paste(PathToOut,"/Plots/Gene_Stats_",name,".jpeg",sep=""), height=1600,width=2400, pointsize=32)
-	par(mfrow=c(2,2))
-	 # FULL: Boxplot
-	COLS.cnt <- c("springgreen3","springgreen1","gold3","gold1")
-	CNT.dat <- FULL[[name]][,c("HET_snp","HOM_VAR_snp","HET_ind","HOM_VAR_ind")]
-	boxplot( CNT.dat, main=paste("Number Variants:",name), xlab="Category",ylab="# Vars in Individual", col=COLS.cnt )
-	for ( i in 1:4 ) { points( jitter(rep(i,nrow(CNT.dat)),amount=.1), CNT.dat[,i], pch="+" ) }
-	 # EXON: Boxplot
-	CNT.dat <- EXON[[name]][,c("HET_snp","HOM_VAR_snp","HET_ind","HOM_VAR_ind")]
-	boxplot( CNT.dat, main=paste("Number Exonic Variants:",name), xlab="Category",ylab="# Exonic Vars in Individual", col=COLS.cnt )
-	for ( i in 1:4 ) { points( jitter(rep(i,nrow(CNT.dat)),amount=.1), CNT.dat[,i], pch="+" ) }
-	 # FULL: Perc
-	COLS.prc <- c("slateblue3","chocolate2","steelblue2")
-	plot(0,0,type="n", xlim=c(0,4.5),ylim=c(0,1), main=paste("Percent Phased & Compound Hets:",name), xlab="",ylab="", xaxt="n",yaxt="n")
-	abline( h=seq(0,1,.1), lty=2,lwd=1,col="grey50" )
-	axis( 2, at=seq(0,1,.2) )
-	axis( 4, at=seq(0,1,.2) )
-	axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
+	print( "Compiling Some Stats" )
+	## Calculate % Compound Hets
+	 # Full
 	PRC.dat <- FULL[[name]][,c("PRC_PHAS_snp","PRC_PHAS_ind")]
-	boxplot( PRC.dat, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.prc[1] )
-	for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat)),amount=.1), PRC.dat[,i], pch="+" ) }
 	PRC_COMP_HET <- array(,c(2,2)) ; rownames(PRC_COMP_HET) <- c(0,1)
 	PRC_COMP_HET_snp <- table( FULL[[name]][,"COMP_HET_snp"] ) / nrow(FULL[[name]])
 	PRC_COMP_HET_ind <- table( FULL[[name]][,"COMP_HET_ind"] ) / nrow(FULL[[name]])
 	PRC_COMP_HET[names(PRC_COMP_HET_snp),1] <- PRC_COMP_HET_snp[names(PRC_COMP_HET_snp)]
 	PRC_COMP_HET[names(PRC_COMP_HET_ind),2] <- PRC_COMP_HET_ind[names(PRC_COMP_HET_ind)]
-	barplot( PRC_COMP_HET, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
-	abline( v=2.25 )
-	## Compile Percept w/ Compound Het
-	GENE[gtx,"p.COMP_HET_snp"] <- PRC_COMP_HET["1",1]
-	GENE[gtx,"p.COMP_HET_ind"] <- PRC_COMP_HET["1",2]
-	 # EXON: Perc
-	plot(0,0,type="n", xlim=c(0,4.5),ylim=c(0,1), main=paste("Percent Phased & Compound Hets:",name), xlab="",ylab="", xaxt="n",yaxt="n")
-	abline( h=seq(0,1,.1), lty=2,lwd=1,col="grey50" )
-	axis( 2, at=seq(0,1,.2) )
-	axis( 4, at=seq(0,1,.2) )
-	axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
+	PRC.dat.full <- PRC.dat
+	PRC_COMP_HET.full <- PRC_COMP_HET
+	 # Exon
 	PRC.dat <- EXON[[name]][,c("PRC_PHAS_snp","PRC_PHAS_ind")]
-	boxplot( PRC.dat, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.prc[1] )
-	for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat)),amount=.1), PRC.dat[,i], pch="+" ) }
 	PRC_COMP_HET <- array(,c(2,2)) ; rownames(PRC_COMP_HET) <- c(0,1)
 	PRC_COMP_HET_snp <- table( EXON[[name]][,"COMP_HET_snp"] ) / nrow(EXON[[name]])
 	PRC_COMP_HET_ind <- table( EXON[[name]][,"COMP_HET_ind"] ) / nrow(EXON[[name]])
 	PRC_COMP_HET[names(PRC_COMP_HET_snp),1] <- PRC_COMP_HET_snp[names(PRC_COMP_HET_snp)]
 	PRC_COMP_HET[names(PRC_COMP_HET_ind),2] <- PRC_COMP_HET_ind[names(PRC_COMP_HET_ind)]
-	barplot( PRC_COMP_HET, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
-	abline( v=2.25 )
-	dev.off()
-	## Compile Percept w/ Compound Het
-	GENE[gtx,"p.COMP_HET_snp.ex"] <- PRC_COMP_HET["1",1]
-	GENE[gtx,"p.COMP_HET_ind.ex"] <- PRC_COMP_HET["1",2]
-	## Next...
-	print(paste("Done with",gtx,"of",n.gtx,"-",name))
-}
+	PRC.dat.exon <- PRC.dat
+	PRC_COMP_HET.exon <- PRC_COMP_HET
+	## Compile Percent w/ Compound Het
+	GENE[gtx,"p.COMP_HET_snp"] <- PRC_COMP_HET.full["1",1]
+	GENE[gtx,"p.COMP_HET_ind"] <- PRC_COMP_HET.full["1",2]
+	GENE[gtx,"p.COMP_HET_snp.ex"] <- PRC_COMP_HET.full["1",1]
+	GENE[gtx,"p.COMP_HET_ind.ex"] <- PRC_COMP_HET.full["1",2]
+
+	print( "Plotting Stats" )
+	PLOT_FRACTION <- 1/100
+	if ( LIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
+		jpeg( paste(PathToOut,"/Plots/Gene_Stats_",name,".jpeg",sep=""), height=1600,width=2400, pointsize=32)
+		par(mfrow=c(2,2))
+		 # FULL: Boxplot
+		COLS.cnt <- c("springgreen3","springgreen1","gold3","gold1")
+		CNT.dat <- FULL[[name]][,c("HET_snp","HOM_VAR_snp","HET_ind","HOM_VAR_ind")]
+		boxplot( CNT.dat, main=paste("Number Variants:",name), xlab="Category",ylab="# Vars in Individual", col=COLS.cnt, pch="" )
+		for ( i in 1:4 ) { points( jitter(rep(i,nrow(CNT.dat)),amount=.1), CNT.dat[,i], pch="+" ) }
+		 # EXON: Boxplot
+		CNT.dat <- EXON[[name]][,c("HET_snp","HOM_VAR_snp","HET_ind","HOM_VAR_ind")]
+		boxplot( CNT.dat, main=paste("Number Exonic Variants:",name), xlab="Category",ylab="# Exonic Vars in Individual", col=COLS.cnt, pch="" )
+		for ( i in 1:4 ) { points( jitter(rep(i,nrow(CNT.dat)),amount=.1), CNT.dat[,i], pch="+" ) }
+		 # FULL: Perc
+		COLS.prc <- c("slateblue3","chocolate2","steelblue2")
+		plot(0,0,type="n", xlim=c(0,4.5),ylim=c(0,1), main=paste("Percent Phased & Compound Hets:",name), xlab="",ylab="", xaxt="n",yaxt="n")
+		abline( h=seq(0,1,.1), lty=2,lwd=1,col="grey50" )
+		axis( 2, at=seq(0,1,.2) )
+		axis( 4, at=seq(0,1,.2) )
+		axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
+		boxplot( PRC.dat.full, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.prc[1], pch="" )
+		for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat.full)),amount=.1), PRC.dat.full[,i], pch="+" ) }
+		barplot( PRC_COMP_HET.full, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
+		abline( v=2.25 )
+		 # EXON: Perc
+		plot(0,0,type="n", xlim=c(0,4.5),ylim=c(0,1), main=paste("Percent Phased & Compound Hets:",name), xlab="",ylab="", xaxt="n",yaxt="n")
+		abline( h=seq(0,1,.1), lty=2,lwd=1,col="grey50" )
+		axis( 2, at=seq(0,1,.2) )
+		axis( 4, at=seq(0,1,.2) )
+		axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
+		boxplot( PRC.dat.exon, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.prc[1], pch="" )
+		for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat.exon)),amount=.1), PRC.dat.exon[,i], pch="+" ) }
+		barplot( PRC_COMP_HET.exon, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
+		abline( v=2.25 )
+		dev.off()
+	} # Close Compile Plot "IF"
+
+	####################################################
+	## Every 50 Gene_Transcripts, Save Tables/Data
+	if ( gtx%%50==0 ) {
+		## Save Table that Gene Data are Compiled In
+		write.table( GENE[1:gtx,], paste(PathToOut,"/Gene_Stats.txt",sep=""), sep="\t",row.names=F,col.names=T,quote=F )
+
+		## Save List of FULL/EXON Cohort data
+		COMPILE <- list( FULL, EXON )
+		names(COMPILE) <- c("Full","Exon")
+		save( COMPILE, file=paste(PathToOut,"/Gene_Stats.Rdata",sep="") )	
+	}
+	## Moving on...
+
+} # Close GTX Loop
 
 ###############################################################
 ## PLOT COMPILED STATS ########################################

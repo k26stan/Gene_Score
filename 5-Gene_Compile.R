@@ -13,7 +13,7 @@
 ###############################################################
 
 LINE <- commandArgs(trailingOnly = TRUE)
-# LINE <- c( "/projects/janssen/Phased/20150218_Test_Genes","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
+# LINE <- c( "/projects/janssen/Phased/20150218_Run","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
 PathToOut <- LINE[1]
 PathToPheno <- LINE[2]
 Cov_List <- LINE[3]
@@ -39,27 +39,31 @@ print(paste( "Association:", PathToAssoc ))
 
 ## Load Phenotype/Covariate Files (if exists)
 if ( file.exists( PathToPheno ) ) {
+	print( "Loading Phenotype/Association Files" )
 	# Load Phenotype/Covariate/Assoc Files
 	PHENO <- read.table( PathToPheno, sep="\t",header=T )
 	COVS.l <- read.table( PathToCovFile, sep="\t",header=T )
-	# Load SNP Association Results
-	SNP.bim <- read.table( paste(PathToOut,"/SNP_Vars.bim",sep=""), sep="\t",header=F)
-	colnames(SNP.bim) <- c("CHR","SNP","XXX","BP","REF","ALT")
-	SNP.P <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.P",sep=""), sep="\t",header=T)
-	SNP.HWE <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.hwe",sep=""), sep="",header=T)
-	# Load IND Association Results
-	IND.bim <- read.table( paste(PathToOut,"/IND_Vars.bim",sep=""), sep="\t",header=F)
-	colnames(IND.bim) <- c("CHR","SNP","XXX","BP","REF","ALT")
-	IND.P <- read.table( paste(PathToAssoc,"IND/IND_Assoc.P",sep=""), sep="\t",header=T)
-	IND.HWE <- read.table( paste(PathToAssoc,"IND/IND_Assoc.hwe",sep=""), sep="",header=T)
 	# Reformat Covariate Table
 	Cov_List.sp <- strsplit( Cov_List, "," )[[1]]
 	COVS <- COVS.l[, c("IID",Cov_List.sp) ]
 	# Merge Phenotype/Covariate Files
 	PC <- merge( x=PHENO[,c("IID","Pheno")], y=COVS, by="IID" )
+	## Load Association Results
+	SNP.P <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.P",sep=""), sep="\t",header=T)
+	SNP.HWE <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.hwe",sep=""), sep="",header=T)
+	IND.P <- read.table( paste(PathToAssoc,"IND/IND_Assoc.P",sep=""), sep="\t",header=T)
+	IND.HWE <- read.table( paste(PathToAssoc,"IND/IND_Assoc.hwe",sep=""), sep="",header=T)
 }else{ print("No Phenotype Provided") }
 
+## Load BIM files
+print( "Loading BIM Files" )
+SNP.bim <- read.table( paste(PathToOut,"/SNP_Vars.bim",sep=""), sep="\t",header=F)
+colnames(SNP.bim) <- c("CHR","SNP","XXX","BP","REF","ALT")
+IND.bim <- read.table( paste(PathToOut,"/IND_Vars.bim",sep=""), sep="\t",header=F)
+colnames(IND.bim) <- c("CHR","SNP","XXX","BP","REF","ALT")
+
 ## Load Gene Coords
+print( "Loading Gene Coordinate File" )
 GENE_COORDS <- read.table( PathToGeneCoords, sep="\t", header=T, comment.char="" )
 colnames(GENE_COORDS) <- gsub("X.","", colnames(GENE_COORDS), fixed=T )
 colnames(GENE_COORDS) <- gsub("hg19.knownGene.","", colnames(GENE_COORDS), fixed=T )
@@ -80,6 +84,7 @@ EX_E_LIST <- strsplit( as.character(GENE_COORDS$exonEnds), "," )
 EX_COUNT <- GENE_COORDS[,"exonCount"]
 
 ## Get out Sample Names for Haplotyped File
+print( "Loading Phased Sample List" )
 hap.samps <- as.character( read.table( paste(PathToOut,"/Phased.sample",sep=""), sep="",header=T )[,1] )
 n.samps <- length(hap.samps)
 hap.colnames <- c("CHR","SNP","BP","REF","ALT", paste( rep(hap.samps, rep(2,n.samps)), 1:2, sep="_" ) )
@@ -103,7 +108,7 @@ FULL <- EXON <- DAMG <- list()
 ## Loop Through Genes
 start_time <- proc.time()
 for ( gtx in 1:n.gtx ) {
-# for ( gtx in 21:25 ) {
+# for ( gtx in 950:n.gtx ) {
 	## Compile Info on Gene_Transcript
 	name <- GTX_LIST[gtx]
 	chr <- gsub( "chr","", as.character( CHR[gtx] ) )
@@ -134,6 +139,7 @@ for ( gtx in 1:n.gtx ) {
 	shared.samps <- sort( Reduce( intersect, list(hap.samps,snp.raw[,"IID"],ind.raw[,"IID"]) ) )
 	## Load Phased Haplotype File (& Rename Columns)
 	print( "Loading Hap Files" )
+	if ( length(readLines(paste(PathToGenes,name,"/Phased.haps",sep="")))==0 ) { next }
 	hap <- read.table( paste(PathToGenes,name,"/Phased.haps",sep=""), sep="",header=F )
 	colnames(hap) <- hap.colnames
 	which.hap.ind <- union( which(nchar(as.character(hap$REF))>1), which(nchar(as.character(hap$ALT))>1) )
@@ -162,8 +168,8 @@ for ( gtx in 1:n.gtx ) {
 		if ( length(WHICH)>0) { TAG.exon <- c( TAG.exon, as.character(gtx.mg[WHICH,"TAG"]) ) }
 	}
 	## Pull out Single-Locus Results
-	print( "Pulling out Single-Locus Results" )
 	if ( file.exists(PathToPheno) ) {
+		print( "Pulling out Single-Locus Results" )
 		snp.p <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>=tx_rng[1]-5000 & SNP.P$BP<=tx_rng[2]+5000 ), ]
 		ind.p <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>=tx_rng[1]-5000 & IND.P$BP<=tx_rng[2]+5000 ), ]
 		gtx.p <- rbind( snp.p, ind.p )
@@ -456,7 +462,7 @@ for ( gtx in 1:n.gtx ) {
 		axis( 2, at=seq(0,1,.2) )
 		axis( 4, at=seq(0,1,.2) )
 		axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
-		boxplot( PRC.dat.full, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.prc[1], pch="" )
+		boxplot( PRC.dat.full, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.cnt[c(1,3)], pch="" )
 		for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat.full)),amount=.1), PRC.dat.full[,i], pch="+" ) }
 		barplot( PRC_COMP_HET.full, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
 		abline( v=2.25 )
@@ -466,7 +472,7 @@ for ( gtx in 1:n.gtx ) {
 		axis( 2, at=seq(0,1,.2) )
 		axis( 4, at=seq(0,1,.2) )
 		axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
-		boxplot( PRC.dat.exon, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.prc[1], pch="" )
+		boxplot( PRC.dat.exon, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.cnt[c(1,3)], pch="" )
 		for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat.exon)),amount=.1), PRC.dat.exon[,i], pch="+" ) }
 		barplot( PRC_COMP_HET.exon, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
 		abline( v=2.25 )

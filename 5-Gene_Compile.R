@@ -7,6 +7,7 @@
 ## Usage ##
 # Rscript 5-Gene_Compile.R <Path/To/Out_Dir> <Path/To/Pheno> <Covs_Command>
 
+# 1774 - SNAR-A3_uc010ybt.1 
 
 ###############################################################
 ## PARSE COMMAND LINE #########################################
@@ -107,8 +108,8 @@ FULL <- EXON <- DAMG <- list()
 
 ## Loop Through Genes
 start_time <- proc.time()
-for ( gtx in 1:n.gtx ) {
-# for ( gtx in 950:n.gtx ) {
+# for ( gtx in 1:n.gtx ) {
+for ( gtx in 1751:n.gtx ) {
 	## Compile Info on Gene_Transcript
 	name <- GTX_LIST[gtx]
 	chr <- gsub( "chr","", as.character( CHR[gtx] ) )
@@ -123,6 +124,10 @@ for ( gtx in 1:n.gtx ) {
 	####################################################
 	## Load & Organize Transcript Data/Files
 	
+	## Check if files exist & contain >0 Lines
+	 # If not, skip to next Gene_Transcript
+	if ( !file.exists(paste(PathToGenes,name,"/SNP_Vars.hwe",sep="")) | !file.exists(paste(PathToGenes,name,"/IND_Vars.hwe",sep="")) ) { next }
+	if ( length(readLines(paste(PathToGenes,name,"/Phased.haps",sep="")))==0 ) { next }
 	## Load HW Files
 	print( "Loading HW Files" )
 	snp.hwe <- read.table( paste(PathToGenes,name,"/SNP_Vars.hwe",sep=""), sep="",header=T )
@@ -139,7 +144,6 @@ for ( gtx in 1:n.gtx ) {
 	shared.samps <- sort( Reduce( intersect, list(hap.samps,snp.raw[,"IID"],ind.raw[,"IID"]) ) )
 	## Load Phased Haplotype File (& Rename Columns)
 	print( "Loading Hap Files" )
-	if ( length(readLines(paste(PathToGenes,name,"/Phased.haps",sep="")))==0 ) { next }
 	hap <- read.table( paste(PathToGenes,name,"/Phased.haps",sep=""), sep="",header=F )
 	colnames(hap) <- hap.colnames
 	which.hap.ind <- union( which(nchar(as.character(hap$REF))>1), which(nchar(as.character(hap$ALT))>1) )
@@ -245,6 +249,31 @@ for ( gtx in 1:n.gtx ) {
 		COLS <- c("steelblue1","slateblue1")
 		COLS.4 <- gsub("1","3",COLS)
 		LIM <- c( 0, max( 4, max(-log10(GTX[,"P_Assoc"]),na.rm=T) ) )
+		## Calculate Observed, Expected, & Area for Plot
+		 # Expected & Observed
+		EXP.full <- -log10( 1:NUM_VARS / NUM_VARS )
+		OBS.full <- -log10( sort( GTX$P_Assoc ) )
+		IND.full <- c(1:length(EXP.full),length(EXP.full),1)
+		 # Calculate Area - Trapezoid Rule
+		H_VALS <- EXP.full[2:NUM_VARS-1] - EXP.full[2:NUM_VARS]
+		B_SUM <- ( OBS.full[2:NUM_VARS-1]-EXP.full[2:NUM_VARS-1] ) + ( OBS.full[2:NUM_VARS]-EXP.full[2:NUM_VARS] )
+		AREA.full.traps <- .5*H_VALS*B_SUM
+		AREA.full <- sum( AREA.full.traps ) # - .5*max(EXP.full)^2
+		GENE[gtx,"AREA"] <- AREA.full
+		GENE[gtx,"BEST_P"] <- 10^(min(-OBS.full,na.rm=T))
+		if ( NUM_EXONIC > 0 ) {
+			 # Expected & Observed
+			EXP.exon <- -log10( 1:NUM_EXONIC / NUM_EXONIC )
+			OBS.exon <- -log10( sort( GTX$P_Assoc[which(GTX$LOC==4)] ) )
+			IND.exon <- c(1:length(EXP.exon),length(EXP.exon),1)
+			 # Calculate Area - Trapezoid Rule
+			H_VALS <- EXP.exon[2:NUM_EXONIC-1] - EXP.exon[2:NUM_EXONIC]
+			B_SUM <- ( OBS.exon[2:NUM_EXONIC-1]-EXP.exon[2:NUM_EXONIC-1] ) + ( OBS.exon[2:NUM_EXONIC]-EXP.exon[2:NUM_EXONIC] )
+			AREA.exon.traps <- .5*H_VALS*B_SUM
+			AREA.exon <- sum( AREA.exon.traps ) # - .5*max(EXP.exon)^2
+			GENE[gtx,"AREA.ex"] <- AREA.exon
+			GENE[gtx,"BEST_P.ex"] <- 10^(min(-OBS.exon,na.rm=T))
+		}
 		## Make Plot
 		PLOT_FRACTION <- 1/100
 		if ( LIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
@@ -255,34 +284,14 @@ for ( gtx in 1:n.gtx ) {
 			abline( v=seq(0,LIM[2],1), lty=2,lwd=1,col="grey50")
 			abline( 0,1, lty=1,lwd=2,col="black" )
 			## Plot Full Set
-			EXP <- -log10( 1:NUM_VARS / NUM_VARS )
-			OBS <- -log10( sort( GTX$P_Assoc ) )
-			IND <- c(1:length(EXP),length(EXP),1)
-			polygon( EXP[IND], c(OBS,EXP[c(NUM_VARS,1)]), col=COLS[1], border=COLS.4[1], density=20,angle=45 )
-			points( EXP, OBS, pch="+", col=COLS.4[1], type="o" )
-			 # Calculate Area - Trapezoid Rule
-			H_VALS <- EXP[2:NUM_VARS-1] - EXP[2:NUM_VARS]
-			B_SUM <- ( OBS[2:NUM_VARS-1]-EXP[2:NUM_VARS-1] ) + ( OBS[2:NUM_VARS]-EXP[2:NUM_VARS] )
-			AREA.traps <- .5*H_VALS*B_SUM
-			AREA <- sum( AREA.traps ) # - .5*max(EXP)^2
-			text( quantile(LIM,.7),quantile(LIM,.1), label=paste("Area:",round(AREA,3),"-",NUM_VARS,"Vars"), col=COLS.4[1], cex=1.2 )
-			GENE[gtx,"AREA"] <- AREA
-			GENE[gtx,"BEST_P"] <- 10^(min(-OBS,na.rm=T))
+			polygon( EXP.full[IND.full], c(OBS.full,EXP.full[c(NUM_VARS,1)]), col=COLS[1], border=COLS.4[1], density=20,angle=45 )
+			points( EXP.full, OBS.full, pch="+", col=COLS.4[1], type="o" )
+			text( quantile(LIM,.7),quantile(LIM,.1), label=paste("Area:",round(AREA.full,3),"-",NUM_VARS,"Vars"), col=COLS.4[1], cex=1.2 )
 			## Plot Exon Set
 			if ( NUM_EXONIC > 0 ) {
-				EXP <- -log10( 1:NUM_EXONIC / NUM_EXONIC )
-				OBS <- -log10( sort( GTX$P_Assoc[which(GTX$LOC==4)] ) )
-				IND <- c(1:length(EXP),length(EXP),1)
-				polygon( EXP[IND], c(OBS,EXP[c(NUM_EXONIC,1)]), col=COLS[2], border=COLS.4[2], density=20,angle=-45 )
-				points( EXP, OBS, pch="+", col=COLS.4[2], type="o" )	
-				 # Calculate Area - Trapezoid Rule
-				H_VALS <- EXP[2:NUM_EXONIC-1] - EXP[2:NUM_EXONIC]
-				B_SUM <- ( OBS[2:NUM_EXONIC-1]-EXP[2:NUM_EXONIC-1] ) + ( OBS[2:NUM_EXONIC]-EXP[2:NUM_EXONIC] )
-				AREA.traps <- .5*H_VALS*B_SUM
-				AREA <- sum( AREA.traps ) # - .5*max(EXP)^2
-				text( quantile(LIM,.7),quantile(LIM,.07), label=paste("Area:",round(AREA,3),"-",NUM_EXONIC,"Vars"), col=COLS.4[2], cex=1.2 )
-				GENE[gtx,"AREA.ex"] <- AREA
-				GENE[gtx,"BEST_P.ex"] <- 10^(min(-OBS,na.rm=T))
+				polygon( EXP.exon[IND.exon], c(OBS.exon,EXP.exon[c(NUM_EXONIC,1)]), col=COLS[2], border=COLS.4[2], density=20,angle=-45 )
+				points( EXP.exon, OBS.exon, pch="+", col=COLS.4[2], type="o" )	
+				text( quantile(LIM,.7),quantile(LIM,.07), label=paste("Area:",round(AREA.exon,3),"-",NUM_EXONIC,"Vars"), col=COLS.4[2], cex=1.2 )
 			}
 			legend("topleft",fill=COLS,density=20,legend=c("Full","Exonic") )
 			dev.off()
@@ -438,8 +447,8 @@ for ( gtx in 1:n.gtx ) {
 	## Compile Percent w/ Compound Het
 	GENE[gtx,"p.COMP_HET_snp"] <- PRC_COMP_HET.full["1",1]
 	GENE[gtx,"p.COMP_HET_ind"] <- PRC_COMP_HET.full["1",2]
-	GENE[gtx,"p.COMP_HET_snp.ex"] <- PRC_COMP_HET.full["1",1]
-	GENE[gtx,"p.COMP_HET_ind.ex"] <- PRC_COMP_HET.full["1",2]
+	GENE[gtx,"p.COMP_HET_snp.ex"] <- PRC_COMP_HET.exon["1",1]
+	GENE[gtx,"p.COMP_HET_ind.ex"] <- PRC_COMP_HET.exon["1",2]
 
 	print( "Plotting Stats" )
 	PLOT_FRACTION <- 1/100
@@ -495,6 +504,20 @@ for ( gtx in 1:n.gtx ) {
 } # Close GTX Loop
 
 ###############################################################
+## SAVE COMPILED DATA #########################################
+###############################################################
+
+print("Writing Tables")
+
+## Save Table that Gene Data are Compiled In
+write.table( GENE, paste(PathToOut,"/Gene_Stats.txt",sep=""), sep="\t",row.names=F,col.names=T,quote=F )
+
+## Save List of FULL/EXON Cohort data
+COMPILE <- list( FULL, EXON )
+names(COMPILE) <- c("Full","Exon")
+save( COMPILE, file=paste(PathToOut,"/Gene_Stats.Rdata",sep="") )
+
+###############################################################
 ## PLOT COMPILED STATS ########################################
 ###############################################################
 ## What to plot from "GENE" table
@@ -512,6 +535,7 @@ for ( gtx in 1:n.gtx ) {
 library(gplots)
 
 ## Heatmap Amongst Gene Variables
+print("Plotting Heatmap")
 COR.dat <- cor( matrix(as.numeric(GENE[,8:28]),ncol=21), use="pairwise.complete.obs",method="spearman" )
 colnames(COR.dat) <- rownames(COR.dat) <- colnames(GENE)[8:28]
 COLS.list <- c("gold1","chocolate2","firebrick2","black","slateblue3","steelblue2","springgreen1")
@@ -521,6 +545,7 @@ heatmap.2( COR.dat, col=COLS, trace="none" )
 dev.off()
 
 ## Plot Size of Gene vs Size of Exons
+print("Plotting Size Scatterplot")
 COLS <- c("steelblue1","slateblue1","black")
 jpeg( paste(PathToOut,"/Plots/Compile_Scatter_GeneSize.jpeg",sep=""), height=1200,width=3000, pointsize=32)
 par(mfrow=c(1,3))
@@ -535,25 +560,27 @@ abline( lm( SIZE.ex ~ SIZE.tx ), lwd=2)
 dev.off()
 
 ## Distribution of Number of Variants
+print("Plotting Num Var Distribution")
 COLS <- c("steelblue1","slateblue1","springgreen3","gold3")
 BIN <- 2
 jpeg( paste(PathToOut,"/Plots/Compile_Num_Vars.jpeg",sep=""), height=1200,width=2400, pointsize=32)
 par(mfrow=c(1,2))
  # Full
 VAR.dat <- matrix( as.numeric(GENE[,c("n.VAR","n.SNP","n.IND")]), ncol=3 )
-BRKS <- seq( 0,as.numeric(max(VAR.dat))+250, 250)
+BRKS <- seq( 0,as.numeric(max(VAR.dat,na.rm=T))+250, 250)
 hist( VAR.dat[,3], breaks=BRKS, col=COLS[4], density=20,angle=-30, main="Distribution of Variant Count (Full)", xlab="Variant Count", ylab="# Genes")
 hist( VAR.dat[,1], breaks=BRKS, col=COLS[1], density=20,angle=30, main="Distribution of Variant Count (Full)", xlab="Variant Count", ylab="# Genes", add=T)
 hist( VAR.dat[,2], breaks=BRKS, col=COLS[3], density=20,angle=60, main="Distribution of Variant Count (Full)", xlab="Variant Count", ylab="# Genes", add=T)
  # Exon
 VAR.dat <- matrix( as.numeric(GENE[,c("n.VAR.ex","n.SNP.ex","n.IND.ex")]), ncol=3 )
-BRKS <- seq( 0,as.numeric(max(VAR.dat))+5, 5)
+BRKS <- seq( 0,as.numeric(max(VAR.dat,na.rm=T))+5, 5)
 hist( VAR.dat[,3], breaks=BRKS, col=COLS[4], density=20,angle=-30, main="Distribution of Variant Count (Exon)", xlab="Variant Count", ylab="# Genes")
 hist( VAR.dat[,1], breaks=BRKS, col=COLS[2], density=20,angle=30, main="Distribution of Variant Count (Exon)", xlab="Variant Count", ylab="# Genes", add=T)
 hist( VAR.dat[,2], breaks=BRKS, col=COLS[3], density=20,angle=60, main="Distribution of Variant Count (Exon)", xlab="Variant Count", ylab="# Genes", add=T)
 dev.off()
 
 ## Distribution of AREA
+print("Plotting Area Distribution")
 COLS <- c("steelblue1","slateblue1")
 BIN <- .1
 jpeg( paste(PathToOut,"/Plots/Compile_Area_Dist.jpeg",sep=""), height=1200,width=2400, pointsize=32)
@@ -568,7 +595,24 @@ BRKS <- seq( min(AREA.dat,na.rm=T)-BIN, max(AREA.dat,na.rm=T)+BIN, BIN )
 hist( AREA.dat, breaks=BRKS, col=COLS[2], main="Distribution of AREA (Exon)", xlab="AREA", ylab="# Genes" )
 dev.off()
 
+## Distribution of Best P-Values
+print("Plotting Best P-Value Distribution")
+COLS <- c("steelblue1","slateblue1")
+BIN <- .2
+jpeg( paste(PathToOut,"/Plots/Compile_BestP_Dist.jpeg",sep=""), height=1200,width=2400, pointsize=32)
+par(mfrow=c(1,2))
+ # Full
+BESTP_P.dat <- -log10( as.numeric( GENE[,"BEST_P"] ) )
+BRKS <- seq( min(BESTP_P.dat,na.rm=T)-BIN, max(BESTP_P.dat,na.rm=T)+BIN, BIN )
+hist( BESTP_P.dat, breaks=BRKS, col=COLS[1], main="Distribution of Best P-Value (Full)", xlab="Best P-Value -log10(p)", ylab="# Genes")
+ # Exon
+BESTP_P.dat <- -log10( as.numeric( GENE[,"BEST_P.ex"] ) )
+BRKS <- seq( min(BESTP_P.dat,na.rm=T)-BIN, max(BESTP_P.dat,na.rm=T)+BIN, BIN )
+hist( BESTP_P.dat, breaks=BRKS, col=COLS[2], main="Distribution of Best P-Value (Exon)", xlab="Best P-Value -log10(p)", ylab="# Genes" )
+dev.off()
+
 ## Distribution of % Samples that are Compound Het
+print("Plotting Perc Compound Hets")
 COLS <- c("springgreen3","gold3")
 BIN <- .05
 XLIM <- c( 0,1 )
@@ -578,28 +622,28 @@ par(mfrow=c(1,2))
  # Full
 CH.dat.snp <- as.numeric( GENE[,"p.COMP_HET_snp"] )
 CH.dat.ind <- as.numeric( GENE[,"p.COMP_HET_ind"] )
-hist( CH.dat.snp, breaks=BRKS, col=COLS[1], main="Distribution of % Compound Hets (Full)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=45 )
-hist( CH.dat.ind, breaks=BRKS, col=COLS[2], main="Distribution of % Compound Hets (Full)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=-45, add=T )
+hist( CH.dat.ind, breaks=BRKS, col=COLS[2], main="Distribution of % Compound Hets (Full)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=-45 )
+hist( CH.dat.snp, breaks=BRKS, col=COLS[1], main="Distribution of % Compound Hets (Full)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=45, add=T )
  # Exon
-CH.dat <- as.numeric( GENE[,"p.COMP_HET_snp.ex"] )
-hist( CH.dat, breaks=BRKS, col=COLS[1], main="Distribution of % Compound Hets (Exon)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=45 )
-CH.dat <- as.numeric( GENE[,"p.COMP_HET_ind.ex"] )
-hist( CH.dat, breaks=BRKS, col=COLS[2], main="Distribution of % Compound Hets (Exon)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=-45, add=T )
+CH.dat.snp <- as.numeric( GENE[,"p.COMP_HET_snp.ex"] )
+CH.dat.ind <- as.numeric( GENE[,"p.COMP_HET_ind.ex"] )
+hist( CH.dat.ind, breaks=BRKS, col=COLS[2], main="Distribution of % Compound Hets (Exon)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=-45 )
+hist( CH.dat.snp, breaks=BRKS, col=COLS[1], main="Distribution of % Compound Hets (Exon)", xlab="% Samples w/ Compound Het in Gene", ylab="# Genes", density=20,angle=45, add=T )
 legend( "topright", fill=COLS, density=20, legend=c("SNP","IND") )
 dev.off()
 
 ###############################################################
-## SAVE COMPILED DATA #########################################
-###############################################################
-
-## Save Table that Gene Data are Compiled In
-write.table( GENE, paste(PathToOut,"/Gene_Stats.txt",sep=""), sep="\t",row.names=F,col.names=T,quote=F )
-
-## Save List of FULL/EXON Cohort data
-COMPILE <- list( FULL, EXON )
-names(COMPILE) <- c("Full","Exon")
-save( COMPILE, file=paste(PathToOut,"/Gene_Stats.Rdata",sep="") )
-
-###############################################################
 ## END OF DOC #################################################
 ###############################################################
+
+
+# GTAB.1 <- read.table("Gene_Stats.1_950.txt",sep="\t",header=T)
+# GTAB.2 <- read.table("Gene_Stats.951_1750.txt",sep="\t",header=T)
+# GTAB.3 <- read.table("Gene_Stats.txt",sep="\t",header=T)
+
+# GTAB <- rbind( GTAB.1[1:950,], GTAB.2[951:1750,], GTAB.3[1751:nrow(GTAB.3),] )
+# GARR <- array( ,dim(GTAB))
+# colnames(GARR) <- colnames(GTAB)
+# for ( col in 1:ncol(GTAB) ) { GARR[,col] <- as.character(GTAB[,col]) }
+# GENE <- GARR
+

@@ -359,6 +359,12 @@ echo \### Doing Final Gene Stat Compilation and Plotting \###
 ## Rscript to Cycle Through Genes and Compile Stats & Make some Plots
 Rscript ${s5_GENE_COMPILE_R} ${OUT_DIR} ${PHENO_PATH} ${COVS_COMMAND}
 
+
+### Look at unique Haplotypes for each Gene
+
+
+
+
 ## Done
 echo `date` "5 - Compile Gene Stats and Plot - DONE" >> ${UPDATE_FILE}
 printf "V\nV\nV\nV\nV\nV\nV\nV\n"
@@ -371,7 +377,10 @@ echo \### 6 - `date` \###
 echo \### Clean Up Directory \###
 echo `date` "6 - Clean Up Directory" >> ${UPDATE_FILE}
 
-
+### Look into making list of candidate Genes & keeping files for those genes
+  # but deleting a bunch from the rest
+    # To delete: Annots.txt, Phased.haps (?), *_Vars.raw (?)
+    # Check how much space would be saved just by deleting the full Annots.txt
 
 
 
@@ -382,7 +391,7 @@ echo `date` "6 - Clean Up Directory" >> ${UPDATE_FILE}
 
 
 ## Done
-echo `date` "5 - Compile Gene Stats and Plot - DONE" >> ${UPDATE_FILE}
+echo `date` "6 - Clean Up Directory - DONE" >> ${UPDATE_FILE}
 printf "V\nV\nV\nV\nV\nV\nV\nV\n"
 fi
 echo \### DONE \###

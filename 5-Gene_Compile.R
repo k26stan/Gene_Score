@@ -71,6 +71,10 @@ colnames(GENE_COORDS) <- gsub("hg19.knownGene.","", colnames(GENE_COORDS), fixed
 colnames(GENE_COORDS) <- gsub("hg19.kgXref.","", colnames(GENE_COORDS), fixed=T )
 GENE_COORDS <- GENE_COORDS[ which(GENE_COORDS[,"chrom"]!="chrX"), ]
 
+###############################################################
+## GET ORGANIZED ##############################################
+###############################################################
+
 ## Parse Gene Coordinates
  # List of Gene_Transcripts
 GTX_LIST <- paste( GENE_COORDS[,"geneSymbol"], GENE_COORDS[,"name"], sep="_" )
@@ -90,6 +94,10 @@ hap.samps <- as.character( read.table( paste(PathToOut,"/Phased.sample",sep=""),
 n.samps <- length(hap.samps)
 hap.colnames <- c("CHR","SNP","BP","REF","ALT", paste( rep(hap.samps, rep(2,n.samps)), 1:2, sep="_" ) )
 
+###############################################################
+## LOOP THROUGH GENES #########################################
+###############################################################
+
 ## Set up Objects to Compile
  # Basic Gene Info
 GENE.cats <- c("GTX","TX_S","TX_E","CD_S","CD_E","EX_S","EX_E","n.EX","n.VAR","n.SNP","n.IND","n.VAR.ph","n.SNP.ph","n.IND.ph","n.VAR.ex","n.SNP.ex","n.IND.ex","n.VAR.ph.ex","n.SNP.ph.ex","n.IND.ph.ex","AREA","AREA.ex","BEST_P","BEST_P.ex","p.COMP_HET_snp","p.COMP_HET_ind","p.COMP_HET_snp.ex","p.COMP_HET_ind.ex")
@@ -106,7 +114,7 @@ GENE[,"n.EX"] <- EX_COUNT
  # Cohort Data
 FULL <- EXON <- DAMG <- list()
 
-## Loop Through Genes
+## LOOP START ######################################
 start_time <- proc.time()
 # for ( gtx in 1:n.gtx ) {
 for ( gtx in 1751:n.gtx ) {
@@ -122,7 +130,7 @@ for ( gtx in 1751:n.gtx ) {
 
 	print(paste( "### Starting Loop",gtx,"-",name,"#####",round(proc.time()-start_time,2)[3] ))
 	####################################################
-	## Load & Organize Transcript Data/Files
+	## LOAD & ORGANIZE TRANSCRIPT DATA/FILES ###########
 	
 	## Check if files exist & contain >0 Lines
 	 # If not, skip to next Gene_Transcript
@@ -201,7 +209,9 @@ for ( gtx in 1751:n.gtx ) {
 	# GTX.phased <- merge( GTX, hap, by="TAG", all=F )
 
 	####################################################
-	## Plot This Shiz
+	## PLOT GENE MAP & GWAS RESULTS ####################
+	PLOT_FRACTION <- 1/50
+	PLOT_RUNIF <- runif(1,0,1)
 
 	## GENE MAPS ##
 	print( "Plotting Gene Map" )
@@ -214,8 +224,7 @@ for ( gtx in 1751:n.gtx ) {
  		YLIM <- c( -1, max( 4, max(-log10(GTX[,"P_Assoc"]),na.rm=T) ) )
  	}else{ YLIM <- c(-1,1) }
 	Y <- 0
-	PLOT_FRACTION <- 1/50
-	if ( YLIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
+	if ( YLIM[2]>4 | PLOT_RUNIF<PLOT_FRACTION ) {
 		jpeg( paste(PathToOut,"/Plots/Gene_Map_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
 		plot(0,0,type="n", xlim=XLIM,ylim=YLIM, xlab=paste("Chromosome",chr,"Position"),ylab="-log10(p)", main=paste("Map & Single-Locus Results of:",name), yaxt="n" )
 		## Plot P-Values
@@ -274,9 +283,8 @@ for ( gtx in 1751:n.gtx ) {
 			GENE[gtx,"AREA.ex"] <- AREA.exon
 			GENE[gtx,"BEST_P.ex"] <- 10^(min(-OBS.exon,na.rm=T))
 		}
-		## Make Plot
-		PLOT_FRACTION <- 1/100
-		if ( LIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
+		## Make Plot		
+		if ( LIM[2]>4 | PLOT_RUNIF<PLOT_FRACTION ) {
 			jpeg( paste(PathToOut,"/Plots/Gene_QQ_",name,".jpeg",sep=""), height=1500,width=1500, pointsize=32)
 			plot(0,0,type="n", xlim=LIM,ylim=LIM, xlab="Expected -log10(p)",ylab="Observed -log10(p)", main=paste("QQ-Plot for:",name) )
 			## Add Lines
@@ -299,7 +307,7 @@ for ( gtx in 1751:n.gtx ) {
 	}
 
 	####################################################
-	## Compile Stats about Variants/Cohort
+	## COMPILE STATS ABOUT VARIANTS/COHORT #############
 	 # By Location
 	   # Ovarall
  	   # Exonic
@@ -330,7 +338,7 @@ for ( gtx in 1751:n.gtx ) {
  	GENE[gtx,"n.SNP.ph.ex"] <- length(which( hap.exon[,"TYPE"]=="snp" ))
  	GENE[gtx,"n.IND.ph.ex"] <- length(which( hap.exon[,"TYPE"]=="ind" ))
 
- 	## Cohort - Full ##
+	## Cohort - Full ###################################
  	print( "Compiling Cohort Stats (Full)" )
  	FULL[[name]] <- array( ,c(n.samps,8) )
  	rownames(FULL[[name]]) <- shared.samps
@@ -363,8 +371,8 @@ for ( gtx in 1751:n.gtx ) {
  	hap.ind.comp.hets <- as.numeric( apply( hap.ind.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
  	FULL[[name]][,"COMP_HET_snp"] <- hap.snp.comp.hets
  	FULL[[name]][,"COMP_HET_ind"] <- hap.ind.comp.hets
-
- 	## Cohort - Exon ##
+ 	
+ 	## Cohort - Exon ###################################
  	print( "Compiling Cohort Stats (Exon)" )
  	EXON[[name]] <- array( ,c(n.samps,8) )
  	rownames(EXON[[name]]) <- shared.samps
@@ -419,7 +427,7 @@ for ( gtx in 1751:n.gtx ) {
  	EXON[[name]][,"COMP_HET_ind"] <- hap.ind.exon.comp.hets
 
 	####################################################
-	## Plot This Shiz
+	## PLOT GENE & PHASING STATS #######################
 	 # FULL: Boxplot HET_snp & HOM_VAR_snp & HET_ind & HOM_VAR_ind all in one
 	 # EXON: Boxplot HET_snp & HOM_VAR_snp & HET_ind & HOM_VAR_ind all in one
 	 # FULL: PRC_PHAS_snp & PRC_PHAS_ind & PRC_COMP_HET_snp & PRC_COMP_HET_ind
@@ -450,9 +458,8 @@ for ( gtx in 1751:n.gtx ) {
 	GENE[gtx,"p.COMP_HET_snp.ex"] <- PRC_COMP_HET.exon["1",1]
 	GENE[gtx,"p.COMP_HET_ind.ex"] <- PRC_COMP_HET.exon["1",2]
 
-	print( "Plotting Stats" )
-	PLOT_FRACTION <- 1/100
-	if ( LIM[2]>4 | runif(1,0,1)<PLOT_FRACTION ) {
+	print( "Plotting Stats" )	
+	if ( LIM[2]>4 | PLOT_RUNIF<PLOT_FRACTION ) {
 		jpeg( paste(PathToOut,"/Plots/Gene_Stats_",name,".jpeg",sep=""), height=1600,width=2400, pointsize=32)
 		par(mfrow=c(2,2))
 		 # FULL: Boxplot
@@ -488,8 +495,54 @@ for ( gtx in 1751:n.gtx ) {
 		dev.off()
 	} # Close Compile Plot "IF"
 
+	## UNIQUE HAPLOTYPES ##
+	# Full #
+	N_hap <- ncol(hap)
+	MAF <- rowMeans( data.matrix(hap[8:N_hap]) )
+	UNIQ.all <- apply( hap[8:N_hap], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.all <- table( UNIQ.all )
+	# sort( unname( TAB.uniq.all) ,decreasing=T )
+	# hist( TAB.uniq.all, plot=F )$counts
+	MAF.which.01 <- which( MAF > .01 )
+	 # MAF .01
+	hap.maf.01 <- hap[ MAF.which.01, ]
+	UNIQ.maf.01 <- apply( hap.maf.01[8:N_hap], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.maf.01 <- table( UNIQ.maf.01 )
+	 # MAF .05
+	MAF.which.05 <- which( MAF > .05 )
+	hap.maf.05 <- hap[ MAF.which.05, ]
+	UNIQ.maf.05 <- apply( hap.maf.05[8:N_hap], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.maf.05 <- table( UNIQ.maf.05 )
+	# Exon #
+	N_hap.exon <- ncol(hap.exon)
+	MAF.exon <- rowMeans( data.matrix(hap.exon[8:N_hap.exon]) )
+	UNIQ.exon.all <- apply( hap.exon[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
+	TAB.exon.uniq.all <- table( UNIQ.exon.all )
+	 # MAF.exon .01
+	MAF.exon.which.01 <- which( MAF.exon > .01 )
+	hap.exon.maf.01 <- hap.exon[ MAF.exon.which.01, ]
+	UNIQ.exon.maf.01 <- apply( hap.exon.maf.01[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
+	TAB.exon.uniq.maf.01 <- table( UNIQ.exon.maf.01 )
+	 # MAF.exon .05
+	MAF.exon.which.05 <- which( MAF.exon > .05 )
+	hap.exon.maf.05 <- hap.exon[ MAF.exon.which.05, ]
+	UNIQ.exon.maf.05 <- apply( hap.exon.maf.05[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
+	TAB.exon.uniq.maf.05 <- table( UNIQ.exon.maf.05 )
+	# Plot It #
+	jpeg( paste(PathToOut,"/Plots/Gene_HaploDistrib_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
+	par(mfrow=c(2,3))
+	 # Full
+	barplot( sort(TAB.uniq.all,decreasing=T) )
+	barplot( sort(TAB.uniq.maf.01,decreasing=T) )
+	barplot( sort(TAB.uniq.maf.05,decreasing=T) )
+	 # Exon
+	barplot( sort(TAB.exon.uniq.all,decreasing=T) )
+	barplot( sort(TAB.exon.uniq.maf.01,decreasing=T) )
+	barplot( sort(TAB.exon.uniq.maf.05,decreasing=T) )
+	dev.off()
+
 	####################################################
-	## Every 50 Gene_Transcripts, Save Tables/Data
+	## EVERY FEW ITERATIONS, SAVE TABLES/DATA ##########
 	if ( gtx%%50==0 ) {
 		## Save Table that Gene Data are Compiled In
 		write.table( GENE[1:gtx,], paste(PathToOut,"/Gene_Stats.txt",sep=""), sep="\t",row.names=F,col.names=T,quote=F )

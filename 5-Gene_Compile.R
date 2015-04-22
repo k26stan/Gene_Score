@@ -49,6 +49,8 @@ if ( file.exists( PathToPheno ) ) {
 	COVS <- COVS.l[, c("IID",Cov_List.sp) ]
 	# Merge Phenotype/Covariate Files
 	PC <- merge( x=PHENO[,c("IID","Pheno")], y=COVS, by="IID" )
+	PC.2 <- PC
+	PC.2[,"IID"] <- unlist(strsplit( as.character(PC$IID),"-"))[seq(1,2*nrow(PC),2)]
 	## Load Association Results
 	SNP.P <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.P",sep=""), sep="\t",header=T)
 	SNP.HWE <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.hwe",sep=""), sep="",header=T)
@@ -118,6 +120,7 @@ FULL <- EXON <- DAMG <- list()
 start_time <- proc.time()
 # for ( gtx in 1:n.gtx ) {
 for ( gtx in 1751:n.gtx ) {
+	# gtx <- grep( "GRIN2B", GTX_LIST )
 	## Compile Info on Gene_Transcript
 	name <- GTX_LIST[gtx]
 	chr <- gsub( "chr","", as.character( CHR[gtx] ) )
@@ -495,7 +498,8 @@ for ( gtx in 1751:n.gtx ) {
 		dev.off()
 	} # Close Compile Plot "IF"
 
-	## UNIQUE HAPLOTYPES ##
+	####################################################
+	## UNIQUE HAPLOTYPES ###############################
 	# Full #
 	N_hap <- ncol(hap)
 	MAF <- rowMeans( data.matrix(hap[8:N_hap]) )
@@ -516,6 +520,7 @@ for ( gtx in 1751:n.gtx ) {
 	# Exon #
 	N_hap.exon <- ncol(hap.exon)
 	MAF.exon <- rowMeans( data.matrix(hap.exon[8:N_hap.exon]) )
+	VARS.exon.all <- hap.exon$TAG
 	UNIQ.exon.all <- apply( hap.exon[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
 	TAB.exon.uniq.all <- table( UNIQ.exon.all )
 	 # MAF.exon .01
@@ -534,21 +539,68 @@ for ( gtx in 1751:n.gtx ) {
 	jpeg( paste(PathToOut,"/Plots/Gene_HaploDistrib_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
 	par(mfrow=c(2,3))
 	 # Full
-	barplot( sort(TAB.uniq.all,decreasing=T), main="Unique Haplotype Freq (Full/All)",xlab="Haplotype",las=2,col=COLS.full[1],border=NA )
-	barplot( sort(TAB.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Full/MAF>1%)",xlab="Haplotype",las=2,col=COLS.full[2],border=NA )
-	barplot( sort(TAB.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Full/MAF>5%)",xlab="Haplotype",las=2,col=COLS.full[3],border=NA )
+	barplot( sort(TAB.uniq.all,decreasing=T), main="Unique Haplotype Freq (Full/All)",xlab="Haplotype",las=2,col=COLS.full[1],border=NA,xaxt="n" )
+	barplot( sort(TAB.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Full/MAF>1%)",xlab="Haplotype",las=2,col=COLS.full[2],border=NA,xaxt="n" )
+	barplot( sort(TAB.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Full/MAF>5%)",xlab="Haplotype",las=2,col=COLS.full[3],border=NA,xaxt="n" )
 	 # Exon
 	barplot( sort(TAB.exon.uniq.all,decreasing=T), main="Unique Haplotype Freq (Exon/All)",xlab="Haplotype",las=2,col=COLS.exon[1],border=NA )
 	barplot( sort(TAB.exon.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Exon/1%)",xlab="Haplotype",las=2,col=COLS.exon[2],border=NA )
 	barplot( sort(TAB.exon.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Exon/5%)",xlab="Haplotype",las=2,col=COLS.exon[3],border=NA )
 	dev.off()
 	## Heatmap Showing Unique Haplotypes
-	HAPLOS.sort <- sort(names( TAB.exon.uniq.all ))
-	HAPLOS.arr <- matrix(as.numeric(unlist(sapply( HAPLOS.sort, function(x) strsplit( x, ""), simplify="array" ))),nrow=length(HAPLOS.sort),byrow=T )
-	######## COLOR HAPLOTYPE BY FREQUENCY ########
+	library(gplots)
+	HAPLOS.arr <- matrix(as.numeric(unlist(sapply( names(TAB.exon.uniq.all), function(x) strsplit( x, ""), simplify="array" ))),nrow=length(TAB.exon.uniq.all),byrow=T )
+	colnames(HAPLOS.arr) <- VARS.exon.all
+	MAFS.cols <- colorRampPalette(c("white","deepskyblue3"))(100)[ceiling(100*MAF.exon)]
+	HAPLOS.cols <- colorRampPalette(c("white","chartreuse3"))(max(TAB.exon.uniq.all))[TAB.exon.uniq.all]
 	jpeg( paste(PathToOut,"/Plots/Gene_HaploUniq_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
-	heatmap.2( HAPLOS.arr, main="Unique Exonic Haplotypes",xlab="Variant Position",ylab="Haplotype",scale="none",trace="none",Rowv=T,Colv=F,dendrogram="row",col=c("black",COLS.exon[1]), lhei=c(1,8),lwid=c(1,8),margins=c(5,5) )
+	heatmap.2( HAPLOS.arr, main="Unique Exonic Haplotypes",xlab="Variant Position",ylab="Haplotype",RowSideColors=HAPLOS.cols,ColSideColors=MAFS.cols,scale="none",trace="none",Rowv=T,Colv=F,dendrogram="row",col=c("black",COLS.exon[1]), lhei=c(1,8),lwid=c(1,6),margins=c(7,5) )
 	dev.off()
+
+	## HAPLOTYPES VS PHENOTYPE ##
+	print( "Analyzing Haplotypes vs Phenotype" )
+	if ( file.exists(PathToPheno) ) {
+		# Get Haplotypes for each Person
+		Samps <- unique( PC.2$IID )
+		N.Samps <- length(Samps)
+		HAPLOS.samp <- array( ,c(N.Samps,2) )
+		colnames(HAPLOS.samp) <- paste("Hap",1:2,sep="_")
+		rownames(HAPLOS.samp) <- Samps
+		for ( s in 1:N.Samps ) {
+			samp <- Samps[s]
+			temp_columns <- grep( samp, colnames(hap.exon) )
+			HAPLOS.samp[s,1] <- paste( hap.exon[,temp_columns[1]],collapse="" )
+			HAPLOS.samp[s,2] <- paste( hap.exon[,temp_columns[2]],collapse="" )
+			HAPLOS.samp[s,] <- sort(HAPLOS.samp[s,],decreasing=F)
+		}
+		# Put Clinical & Haplotype Data Together
+		HAPLOS.samp.2 <- data.frame( IID=rep(rownames(HAPLOS.samp),2), HAP=c(HAPLOS.samp[,1],HAPLOS.samp[,2]), stringsAsFactors=F )
+		PC.haps <- merge( PC.2, HAPLOS.samp.2, by="IID" )
+		MOD.covs <- lm( Pheno ~ . , data=PC.2[,-1] )
+		RES.covs <- resid( MOD.covs )
+		RES.covs.2 <- data.frame( IID=PC.2[,1],RES=RES.covs )
+		RES.covs.3 <- merge( RES.covs.2, HAPLOS.samp.2, by="IID" )
+		# Specify "Rare" Haplotypes
+		HAPLOS.rare <- names( which(TAB.exon.uniq.all<=5) )
+		HAPLOS.samp.r <- HAPLOS.samp
+		HAPLOS.samp.r[which(HAPLOS.samp.r[,"Hap_1"] %in% HAPLOS.rare),"Hap_1"] <- "Rare"
+		HAPLOS.samp.r[which(HAPLOS.samp.r[,"Hap_2"] %in% HAPLOS.rare),"Hap_2"] <- "Rare"
+		RES.covs.3[which(RES.covs.3[,"HAP"] %in% HAPLOS.rare),"HAP"] <- "Rare"
+		# Run Analyses
+		MOD.haps <- lm( Pheno ~ . , data=PC.haps[,-1] )
+		P.haps <- anova(MOD.haps)["HAP","Pr(>F)"]
+		MOD.haps.res <- lm( RES ~ HAP , data=RES.covs.3[,-1] )
+		# Plot Residuals from Covariates vs Haplotype
+		jpeg( paste(PathToOut,"/Plots/Gene_HaploAssoc_",name,".jpeg",sep=""), height=1700,width=2000, pointsize=30)
+		par(mfrow=c(2,1))
+		TEMP <- boxplot( RES ~ factor(HAP), data=RES.covs.3, col=COLS.exon[1],main=paste("Residuals vs Haplotype:",name),xlab="Haplotypes",ylab="Phenotype Residuals vs Covariates",xaxt="n",pch="" )
+		abline( h=seq(-5,5,1),lty=2,col="grey50" )
+		TEMP <- boxplot( RES ~ factor(HAP), data=RES.covs.3, col=COLS.exon[1],main=paste("Residuals vs Haplotype:",name),xlab="Haplotypes",ylab="Phenotype Residuals vs Covariates",xaxt="n",pch="",add=T )
+		points( RES ~ factor(HAP), data=RES.covs.3, pch="+" )
+		text( 2,-2, label=paste("P=",formatC(P.haps,format="e",digits=2)) )
+		barplot( TEMP$n, names.arg=TEMP$names, col=COLS.exon[1],main=paste("Haplotype Frequency:",name),xlab="Haplotypes",ylab="Frequency",las=2)
+		dev.off()
+	}
 
 	####################################################
 	## EVERY FEW ITERATIONS, SAVE TABLES/DATA ##########

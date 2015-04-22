@@ -102,7 +102,7 @@ hap.colnames <- c("CHR","SNP","BP","REF","ALT", paste( rep(hap.samps, rep(2,n.sa
 
 ## Set up Objects to Compile
  # Basic Gene Info
-GENE.cats <- c("GTX","TX_S","TX_E","CD_S","CD_E","EX_S","EX_E","n.EX","n.VAR","n.SNP","n.IND","n.VAR.ph","n.SNP.ph","n.IND.ph","n.VAR.ex","n.SNP.ex","n.IND.ex","n.VAR.ph.ex","n.SNP.ph.ex","n.IND.ph.ex","AREA","AREA.ex","BEST_P","BEST_P.ex","p.COMP_HET_snp","p.COMP_HET_ind","p.COMP_HET_snp.ex","p.COMP_HET_ind.ex")
+GENE.cats <- c("GTX","TX_S","TX_E","CD_S","CD_E","EX_S","EX_E","n.EX","n.VAR","n.SNP","n.IND","n.VAR.ph","n.SNP.ph","n.IND.ph","n.VAR.ex","n.SNP.ex","n.IND.ex","n.VAR.ph.ex","n.SNP.ph.ex","n.IND.ph.ex","AREA","AREA.ex","BEST_P","BEST_P.ex","p.COMP_HET_snp","p.COMP_HET_ind","p.COMP_HET_snp.ex","p.COMP_HET_ind.ex","HAP_P")
 GENE <- array( , c(n.gtx,length(GENE.cats)) )
 colnames(GENE) <- GENE.cats
 GENE[,"GTX"] <- GTX_LIST
@@ -379,7 +379,7 @@ for ( gtx in 1751:n.gtx ) {
  	print( "Compiling Cohort Stats (Exon)" )
  	EXON[[name]] <- array( ,c(n.samps,8) )
  	rownames(EXON[[name]]) <- shared.samps
- 	colnames(EXON[[name]]) <- c("HET_snp","HOM_VAR_snp","PRC_PHAS_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","PRC_PHAS_ind","COMP_HET_ind")
+ 	colnames(EXON[[name]]) <- c("HET_snp","HOM_VAR_snp","PRC_PHAS_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","PRC_PHAS_ind","COMP_HET_ind","COMP_HET_any")
  	exon.tag <- as.character( GTX[ which(GTX$LOC==4),"TAG"] )
  	exon.tag.raw <- as.character( GTX[ which(GTX$LOC==4),"RAW_TAG"] )
  	snp.raw.exon <- snp.raw[ ,c( 1:6,which(colnames(snp.raw)%in%exon.tag.raw) ) ]
@@ -411,23 +411,32 @@ for ( gtx in 1751:n.gtx ) {
   	 # What percent of variants were phased?
  	hap.1.cols <- seq( which(colnames(hap)=="ALT")+1,ncol(hap),2)
  	hap.2.cols <- seq( which(colnames(hap)=="ALT")+2,ncol(hap),2)
+ 	 # SNP
  	hap.snp <- hap[ which(hap$TYPE=="snp") , ]
  	hap.snp.exon <- hap.snp[ which(hap.snp[,"TAG"]%in%exon.tag), ]
  	hap.snp.exon.diffs <- hap.snp.exon[,hap.1.cols] - hap.snp.exon[,hap.2.cols]
  	colnames(hap.snp.exon.diffs) <- gsub( "_1","", colnames(hap.snp.exon.diffs) )
  	hap.snp.exon.n.hets <- apply( hap.snp.exon.diffs, 2, function(x) length(which(x!=0)) )
  	EXON[[name]][,"PRC_PHAS_snp"] <- hap.snp.exon.n.hets / EXON[[name]][,"HET_snp"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.snp.exon.n.hets / EXON[[name]][,"HET_snp"]
+ 	 # Indel
   	hap.ind <- hap[ which(hap$TYPE=="ind") , ]
  	hap.ind.exon <- hap.ind[ which(hap.ind[,"TAG"]%in%exon.tag), ]
  	hap.ind.exon.diffs <- hap.ind.exon[,hap.1.cols] - hap.ind.exon[,hap.2.cols]
  	colnames(hap.ind.exon.diffs) <- gsub( "_1","", colnames(hap.ind.exon.diffs) )
  	hap.ind.exon.n.hets <- apply( hap.ind.exon.diffs, 2, function(x) length(which(x!=0)) )
  	EXON[[name]][,"PRC_PHAS_ind"] <- hap.ind.exon.n.hets / EXON[[name]][,"HET_ind"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.ind.exon.n.hets / EXON[[name]][,"HET_ind"]
+ 	 # Any
+ 	hap.exon.diffs <- hap.exon[,hap.1.cols] - hap.exon[,hap.2.cols]
+ 	colnames(hap.exon.diffs) <- gsub( "_1","", colnames(hap.exon.diffs) )
+ 	hap.exon.n.hets <- apply( hap.exon.diffs, 2, function(x) length(which(x!=0)) )
+
  	 # Which Samples have a Compound Het?
  	hap.snp.exon.comp.hets <- as.numeric( apply( hap.snp.exon.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
  	hap.ind.exon.comp.hets <- as.numeric( apply( hap.ind.exon.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
+ 	hap.exon.comp.hets <- as.numeric( apply( hap.exon.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
  	EXON[[name]][,"COMP_HET_snp"] <- hap.snp.exon.comp.hets
  	EXON[[name]][,"COMP_HET_ind"] <- hap.ind.exon.comp.hets
+ 	EXON[[name]][,"COMP_HET_any"] <- hap.exon.comp.hets
 
 	####################################################
 	## PLOT GENE & PHASING STATS #######################
@@ -563,6 +572,8 @@ for ( gtx in 1751:n.gtx ) {
 		# Get Haplotypes for each Person
 		Samps <- unique( PC.2$IID )
 		N.Samps <- length(Samps)
+
+		## Unique Haplotypes vs Phenotype ##
 		HAPLOS.samp <- array( ,c(N.Samps,2) )
 		colnames(HAPLOS.samp) <- paste("Hap",1:2,sep="_")
 		rownames(HAPLOS.samp) <- Samps
@@ -589,6 +600,7 @@ for ( gtx in 1751:n.gtx ) {
 		# Run Analyses
 		MOD.haps <- lm( Pheno ~ . , data=PC.haps[,-1] )
 		P.haps <- anova(MOD.haps)["HAP","Pr(>F)"]
+		GENE[gtx,"HAP_P"] <- P.haps
 		MOD.haps.res <- lm( RES ~ HAP , data=RES.covs.3[,-1] )
 		# Plot Residuals from Covariates vs Haplotype
 		jpeg( paste(PathToOut,"/Plots/Gene_HaploAssoc_",name,".jpeg",sep=""), height=1700,width=2000, pointsize=30)
@@ -600,6 +612,24 @@ for ( gtx in 1751:n.gtx ) {
 		text( 2,-2, label=paste("P=",formatC(P.haps,format="e",digits=2)) )
 		barplot( TEMP$n, names.arg=TEMP$names, col=COLS.exon[1],main=paste("Haplotype Frequency:",name),xlab="Haplotypes",ylab="Frequency",las=2)
 		dev.off()
+
+		## Unique Haplotypes vs Phenotype ##
+		PC.ch <- merge( PC.2, EXON[[name]], by.x="IID",by.y="row.names" )
+		PC.ch.2 <- PC.ch[,c(colnames(PC.2),"COMP_HET_any")]
+		MOD.ch <- lm( Pheno ~ . , data=PC.ch.2[,-1] )
+		P.ch <- anova(MOD.ch)["COMP_HET_any","Pr(>F)"]
+		GENE[gtx,"CH_P"] <- P.ch
+		RES.ch.3 <- merge( RES.covs.2, PC.ch.2[,c("IID","COMP_HET_any")], by="IID" )
+		MOD.ch.res <- lm( RES ~ COMP_HET_any , data=RES.ch.3 )
+		# Plot Residuals from Covariates vs Haplotype
+		jpeg( paste(PathToOut,"/Plots/Gene_CHAssoc_",name,".jpeg",sep=""), height=1200,width=1000, pointsize=30)
+		TEMP <- boxplot( RES ~ factor(COMP_HET_snp), data=RES.ch.3, col=COLS.exon[1],main=paste("Residuals vs CompHet Status:",name),xlab="Compound Het Status",ylab="Phenotype Residuals vs Covariates",pch="" )
+		abline( h=seq(-5,5,1),lty=2,col="grey50" )
+		TEMP <- boxplot( RES ~ factor(COMP_HET_snp), data=RES.ch.3, col=COLS.exon[1],main=paste("Residuals vs CompHet Status:",name),xlab="Compound Het Status",ylab="Phenotype Residuals vs Covariates",pch="",add=T )
+		points( RES ~ factor(COMP_HET_snp), data=RES.ch.3, pch="+" )
+		text( 1.5,-2, label=paste("P=",formatC(P.ch,format="e",digits=2)) )
+		dev.off()
+
 	}
 
 	####################################################

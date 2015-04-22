@@ -90,8 +90,8 @@ s5_GENE_COMPILE_R=/projects/janssen/Phased/SCRIPTS/5-Gene_Compile.R
 ## Pull some Info out of Parameters ##
 
 # Get Names of Specific Files
-DIRS=(${PHENO_PATH//\// })
-PHENO=${DIRS[${#DIRS[@]} - 1]} # Get Name of Phenotype File
+TEMP=(${PHENO_PATH//\// })
+PHENO=${TEMP[${#TEMP[@]} - 1]} # Get Name of Phenotype File
 
 # Specify list of Covariates to include (for command ad for filename)
 if [ $PC_COUNT -eq 0 ]

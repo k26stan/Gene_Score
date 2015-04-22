@@ -528,17 +528,26 @@ for ( gtx in 1751:n.gtx ) {
 	hap.exon.maf.05 <- hap.exon[ MAF.exon.which.05, ]
 	UNIQ.exon.maf.05 <- apply( hap.exon.maf.05[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
 	TAB.exon.uniq.maf.05 <- table( UNIQ.exon.maf.05 )
-	# Plot It #
+	## Barplot Haplotype Frequencies
+	COLS.full <- paste("steelblue",1:3,sep="")
+	COLS.exon <- paste("slateblue",1:3,sep="") # c("tomato2","navyblue","gold1")
 	jpeg( paste(PathToOut,"/Plots/Gene_HaploDistrib_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
 	par(mfrow=c(2,3))
 	 # Full
-	barplot( sort(TAB.uniq.all,decreasing=T) )
-	barplot( sort(TAB.uniq.maf.01,decreasing=T) )
-	barplot( sort(TAB.uniq.maf.05,decreasing=T) )
+	barplot( sort(TAB.uniq.all,decreasing=T), main="Unique Haplotype Freq (Full/All)",xlab="Haplotype",las=2,col=COLS.full[1],border=NA )
+	barplot( sort(TAB.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Full/MAF>1%)",xlab="Haplotype",las=2,col=COLS.full[2],border=NA )
+	barplot( sort(TAB.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Full/MAF>5%)",xlab="Haplotype",las=2,col=COLS.full[3],border=NA )
 	 # Exon
-	barplot( sort(TAB.exon.uniq.all,decreasing=T) )
-	barplot( sort(TAB.exon.uniq.maf.01,decreasing=T) )
-	barplot( sort(TAB.exon.uniq.maf.05,decreasing=T) )
+	barplot( sort(TAB.exon.uniq.all,decreasing=T), main="Unique Haplotype Freq (Exon/All)",xlab="Haplotype",las=2,col=COLS.exon[1],border=NA )
+	barplot( sort(TAB.exon.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Exon/1%)",xlab="Haplotype",las=2,col=COLS.exon[2],border=NA )
+	barplot( sort(TAB.exon.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Exon/5%)",xlab="Haplotype",las=2,col=COLS.exon[3],border=NA )
+	dev.off()
+	## Heatmap Showing Unique Haplotypes
+	HAPLOS.sort <- sort(names( TAB.exon.uniq.all ))
+	HAPLOS.arr <- matrix(as.numeric(unlist(sapply( HAPLOS.sort, function(x) strsplit( x, ""), simplify="array" ))),nrow=length(HAPLOS.sort),byrow=T )
+	######## COLOR HAPLOTYPE BY FREQUENCY ########
+	jpeg( paste(PathToOut,"/Plots/Gene_HaploUniq_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
+	heatmap.2( HAPLOS.arr, main="Unique Exonic Haplotypes",xlab="Variant Position",ylab="Haplotype",scale="none",trace="none",Rowv=T,Colv=F,dendrogram="row",col=c("black",COLS.exon[1]), lhei=c(1,8),lwid=c(1,8),margins=c(5,5) )
 	dev.off()
 
 	####################################################

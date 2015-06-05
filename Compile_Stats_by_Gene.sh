@@ -79,6 +79,7 @@ REF_FA=/projects/janssen/ref/ref.fa
 VCF_TOOLS=/projects/janssen/Tools/vcftools_0.1.11/bin/vcftools
 PLINK=/projects/janssen/Tools/plink_linux_x86_64/plink 
 GENE_TABLE=/home/kstandis/HandyStuff/GG-Gene_Names_DB.txt
+eQTL_TABLE=/projects/janssen/ANNOTATE/gtex_eqtl/Whole_Blood.portal.eqtl.sorted.gz
 
 ## Custom Scripts
 s2_COMPILE_GENE_COORDS_R=/projects/janssen/Phased/SCRIPTS/2-Compile_Gene_Coords.R
@@ -138,24 +139,9 @@ echo `date` "2 - Pull Gene Coordinates" >> ${UPDATE_FILE}
 ## Get Gene Coordinates from Ref Table
 head -1 ${GENE_TABLE} > ${OUT_DIR}/Gene_Info.raw.txt
 cat ${GENE_TABLE} | grep -f ${GENE_LIST} >> ${OUT_DIR}/Gene_Info.raw.txt
-# cat ${OUT_DIR}/Gene_Info.txt | awk -F\\t '{print $15"_"$1"\t"$2"\t"$3"\t"$4}' > ${OUT_DIR}/Gene_Range.txt
 
 ## Compile Coordinates into one file (w/ Buffer)
 Rscript ${s2_COMPILE_GENE_COORDS_R} ${OUT_DIR}
-
-# IFSo=$IFS
-# IFS=$'\n' # Makes it so each line is read whole (not separated by tabs)
-# for line in `tail -n+2 ${OUT_DIR}/Gene_Range.txt`
-# do
-#  # Pull out Name/Coordinates for each Transcripts
-# tag=`echo ${line} | awk '{print $1}'`
-# chr=`echo ${line} | awk '{print $2}' | sed 's/chr//g'`
-# start=$( expr `echo ${line} | awk '{print $3}'` - 5000 )
-# stop=$( expr `echo ${line} | awk '{print $4}'` + 5000 )
-# echo -e ${chr}'\t'${start}"\t"${stop}"\t"${tag} >> ${OUT_DIR}/Gene_Range.plink.txt
-# done
-# IFS=$IFSo # Reset
-
 
 ## Done
 echo `date` "2 - Pull Gene Coordinates - DONE" >> ${UPDATE_FILE}
@@ -230,12 +216,15 @@ ${PLINK} \
 if [ -e ${ANNOTS} ]
 then
  # Determine which columns to print for annotations
-WHICH_COLS=`zcat ${ANNOTS} | head -1 | sed "s/\t/\n/g" | grep -nrx 'Gene\|Gene_Type\|Location\|Coding_Impact' | awk -F: '{print $1}'`
+WHICH_COLS=`zcat ${ANNOTS} | head -1 | sed "s/\t/\n/g" | grep -nrx 'Gene\|Gene_Type\|Location\|Coding_Impact\|Protein_Impact_Score(SIFT)\|Protein_Impact_Probability(Polyphen)' | awk -F: '{print $1}'`
 CUT_COLS=`echo ${WHICH_COLS} | sed 's/ /,/g'`
  # Pull out annotations for desired locations
 zcat ${ANNOTS} | head -1 > ${OUT_PATH_GENE}/Annots.txt
 tabix ${ANNOTS} chr${chr}:${start}-${stop} >> ${OUT_PATH_GENE}/Annots.txt
 cat ${OUT_PATH_GENE}/Annots.txt | cut -f2-7,${CUT_COLS} >> ${OUT_PATH_GENE}/Annots_Short.txt
+ # Pull out eQTLs in desired locations
+zcat ${eQTL_TABLE} | head -1 > ${OUT_PATH_GENE}/eQTLs.txt
+tabix ${eQTL_TABLE} chr${chr}:${start}-${stop} >> ${OUT_PATH_GENE}/eQTLs.txt
 fi
 
 done # Close Gene_Transcript Loop

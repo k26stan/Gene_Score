@@ -54,13 +54,16 @@ if ( file.exists( PathToPheno ) ) {
 	COVS <- COVS.l[, c("IID",Cov_List.sp) ]
 	# Merge Phenotype/Covariate Files
 	PC <- merge( x=PHENO[,c("IID","Pheno")], y=COVS, by="IID" )
-	PC.2 <- PC
-	PC.2[,"IID"] <- unlist(strsplit( as.character(PC$IID),"-"))[seq(1,2*nrow(PC),2)]
+	PC <- PC
+	PC[,"IID"] <- unlist(strsplit( as.character(PC$IID),"-"))[seq(1,2*nrow(PC),2)]
 	## Load Association Results
 	SNP.P <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.P",sep=""), sep="\t",header=T)
 	SNP.HWE <- read.table( paste(PathToAssoc,"SNP/SNP_Assoc.hwe",sep=""), sep="",header=T)
 	IND.P <- read.table( paste(PathToAssoc,"IND/IND_Assoc.P",sep=""), sep="\t",header=T)
 	IND.HWE <- read.table( paste(PathToAssoc,"IND/IND_Assoc.hwe",sep=""), sep="",header=T)
+
+	## Get Phenotype Sample List
+	pheno.samps <- as.character( PC[,"IID"] )
 }else{ print("No Phenotype Provided") }
 
 ## Load BIM files
@@ -98,8 +101,8 @@ EX_COUNT <- GENE_COORDS[,"exonCount"]
 ## Get out Sample Names for Haplotyped File
 print( "Loading Phased Sample List" )
 hap.samps <- as.character( read.table( paste(PathToOut,"/Phased.sample",sep=""), sep="",header=T )[,1] )
-n.samps <- length(hap.samps)
-hap.colnames <- c("CHR","SNP","BP","REF","ALT", paste( rep(hap.samps, rep(2,n.samps)), 1:2, sep="_" ) )
+n.hap.samps <- length(hap.samps)
+hap.colnames <- c("CHR","SNP","BP","REF","ALT", paste( rep(hap.samps, rep(2,n.hap.samps)), 1:2, sep="_" ) )
 
 ###############################################################
 ## LOOP THROUGH GENES #########################################
@@ -150,30 +153,145 @@ for ( gtx in 1:n.gtx ) {
 	print(paste( "####### Starting",gtx,"of",n.gtx,"-",name,"#####",round(proc.time()-start_time,2)[3] ))
 	
 	####################################################
-	## LOAD DATA/FILES #################################
+	## PULL GTX DATA/FILES #############################
 	
 	## Check if files exist & contain >0 Lines
 	 # If not, skip to next Gene_Transcript
 	if ( !file.exists(paste(PathToGenes,name,"/SNP_Vars.hwe",sep="")) | !file.exists(paste(PathToGenes,name,"/IND_Vars.hwe",sep="")) ) { next }
 	if ( length(readLines(paste(PathToGenes,name,"/Phased.haps",sep="")))==0 ) { next }
+	
 	## Load HW Files
 	print( "Loading HW Files" )
 	snp.hwe <- read.table( paste(PathToGenes,name,"/SNP_Vars.hwe",sep=""), sep="",header=T )
 	ind.hwe <- read.table( paste(PathToGenes,name,"/IND_Vars.hwe",sep=""), sep="",header=T )
-	gtx.hwe <- rbind( snp.hwe, ind.hwe )
+
 	## Load Genotype Files
 	print( "Loading Raw GT Files" )
 	snp.raw <- read.table( paste(PathToGenes,name,"/SNP_Vars.raw",sep=""), sep="",header=T )
-	snp.raw[,"IID"] <- sapply( strsplit(as.character(snp.raw[,"IID"]),"-"), "[", 1 )
-	snp.raw.tag <- colnames(snp.raw)[7:ncol(snp.raw)]
 	ind.raw <- read.table( paste(PathToGenes,name,"/IND_Vars.raw",sep=""), sep="",header=T )
-	ind.raw[,"IID"] <- sapply( strsplit(as.character(ind.raw[,"IID"]),"-"), "[", 1 )
-	ind.raw.tag <- colnames(ind.raw)[7:ncol(ind.raw)]
-	shared.samps <- sort( Reduce( intersect, list(hap.samps,snp.raw[,"IID"],ind.raw[,"IID"]) ) )
+
 	## Load Phased Haplotype File (& Rename Columns)
 	print( "Loading Hap Files" )
 	hap <- read.table( paste(PathToGenes,name,"/Phased.haps",sep=""), sep="",header=F )
 	colnames(hap) <- hap.colnames
+	snp.hap <- hap[ which( hap$REF%in%c("C","G","T","A") & hap$ALT%in%c("C","G","T","A") ), ]
+	ind.hap <- hap[ -which( hap$REF%in%c("C","G","T","A") & hap$ALT%in%c("C","G","T","A") ), ]
+
+	## Pull out Variant Positions from BIM files (& Compile to 1 file)
+	print( "Pulling GTX Region from Bim Files" )
+	snp.bim <- SNP.bim[ which(SNP.bim$CHR==chr & SNP.bim$BP>=rng[1] & SNP.bim$BP<=rng[2] ), ]
+	ind.bim <- IND.bim[ which(IND.bim$CHR==chr & IND.bim$BP>=rng[1] & IND.bim$BP<=rng[2] ), ]
+
+	## Pull Out Single-Locus Results
+	if ( file.exists(PathToPheno) ) {
+		print( "Pulling out Single-Locus Results" )
+		snp.p <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>=tx_rng[1]-5000 & SNP.P$BP<=tx_rng[2]+5000 ), ]
+		ind.p <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>=tx_rng[1]-5000 & IND.P$BP<=tx_rng[2]+5000 ), ]
+	}
+
+	####################################################
+	## FILTER/ORGANIZE SOME FILES ######################
+
+	## Get Intersection of Samples
+	snp.raw[,"IID"] <- sapply(strsplit(as.character(snp.raw[,"IID"]),"-"),"[",1)
+	ind.raw[,"IID"] <- sapply(strsplit(as.character(ind.raw[,"IID"]),"-"),"[",1)
+	raw.samps <- intersect( snp.raw[,"IID"], ind.raw[,"IID"] )
+	if ( file.exists(PathToPheno) ) {
+		shared.samps <- sort( Reduce( intersect, list(hap.samps,raw.samps,pheno.samps) ) )
+	}else{
+		shared.samps <- sort( intersect( hap.samps, raw.samps ) )
+	}
+	n.samps <- length(shared.samps)
+
+	## Remove unused Samples from RAW, HAP, and Pheno (if.exists) files
+	 # Raw Files
+	snp.raw <- snp.raw[ which(snp.raw[,"IID"]%in%shared.samps), ]
+	ind.raw <- ind.raw[ which(ind.raw[,"IID"]%in%shared.samps), ]
+	 # Hap File
+	hap.colnames.samp <- paste( rep(shared.samps, rep(2,n.samps)), 1:2, sep="_" )
+	snp.hap <- snp.hap[ ,c( 1:grep("ALT",colnames(snp.hap)),which(colnames(snp.hap)%in%hap.colnames.samp) ) ]
+	ind.hap <- ind.hap[ ,c( 1:grep("ALT",colnames(ind.hap)),which(colnames(ind.hap)%in%hap.colnames.samp) ) ]
+
+	## Remove Superfluous Columns from HWE & Change colnames
+	snp.hwe <- snp.hwe[ , -which(colnames(snp.hwe)%in%c("TEST","O.HET.","E.HET.")) ]
+	colnames(snp.hwe)[ncol(snp.hwe)] <- "P_HW"
+	ind.hwe <- ind.hwe[ , -which(colnames(ind.hwe)%in%c("TEST","O.HET.","E.HET.")) ]
+	colnames(ind.hwe)[ncol(ind.hwe)] <- "P_HW"
+
+	## Remove Superfluous Columns from BIM file
+	snp.bim <- snp.bim[ , -which(colnames(snp.bim)%in%c("XXX")) ]
+	ind.bim <- ind.bim[ , -which(colnames(ind.bim)%in%c("XXX")) ]
+
+	####################################################
+	## CREATE VARIANT TAGS & MERGE FILES ###############
+
+	## Tag for Hap File
+	tag.snp.hap <- paste( snp.hap[,"CHR"],snp.hap[,"BP"],sep="_" )
+	tag.ind.hap <- paste( ind.hap[,"CHR"],ind.hap[,"BP"],sep="_" )
+
+	## Tag for Raw File
+	tag.snp.raw <- colnames(snp.raw)[(grep("PHENOTYPE",colnames(snp.raw))+1):ncol(snp.raw)]
+	tag.ind.raw <- colnames(ind.raw)[(grep("PHENOTYPE",colnames(ind.raw))+1):ncol(ind.raw)]
+
+	## Add Raw Tag to BIM file
+	snp.bim <- data.frame( snp.bim, TYPE="snp", RAW_TAG=tag.snp.raw )
+	ind.bim <- data.frame( ind.bim, TYPE="ind", RAW_TAG=tag.ind.raw )
+
+	## Merge HWE & BIM files
+	snp.mg.1 <- merge( snp.bim, snp.hwe[,-which(colnames(snp.hwe)%in%c("CHR"))], by="SNP", all=T )
+	ind.mg.1 <- merge( ind.bim, ind.hwe[,-which(colnames(ind.hwe)%in%c("CHR"))], by="SNP", all=T )
+
+	## Merge MG.1 and P Files (if Pheno exists)
+	if ( file.exists(PathToPheno) ) {
+		colnames(snp.p)[ncol(snp.p)] <- "P_Assoc"
+		snp.mg.2 <- merge( snp.mg.1, snp.p[c("SNP","P_Assoc")], by="SNP",all=T )
+		colnames(ind.p)[ncol(ind.p)] <- "P_Assoc"
+		ind.mg.2 <- merge( ind.mg.1, ind.p[c("SNP","P_Assoc")], by="SNP",all=T )
+	}else{
+		snp.mg.2 <- snp.mg.1
+		ind.mg.2 <- ind.mg.1
+	}
+
+	## Merge MG.2 and RAW Files
+	snp.raw.t <- snp.raw[,tag.snp.raw] ; rownames(snp.raw.t) <- snp.raw[,"IID"]
+	snp.raw.t <- t(snp.raw.t)
+	snp.mg.3 <- merge( snp.mg.2, snp.raw.t, by.x="RAW_TAG",by.y="row.names",all=T )
+	ind.raw.t <- ind.raw[,tag.ind.raw] ; rownames(ind.raw.t) <- ind.raw[,"IID"]
+	ind.raw.t <- t(ind.raw.t)
+	ind.mg.3 <- merge( ind.mg.2, ind.raw.t, by.x="RAW_TAG",by.y="row.names",all=T )
+
+	## Merge MG.3 and HAP files
+	tag.snp.mg.3 <- paste( snp.mg.3$CHR,snp.mg.3$BP,sep="_" )
+	snp.mg.3 <- data.frame( TAG=tag.snp.mg.3, snp.mg.3 )
+	snp.hap <- data.frame( TAG=tag.snp.hap, snp.hap )
+	snp.mg.4 <- merge( snp.mg.3,snp.hap, by="TAG", all=T )
+	tag.ind.mg.3 <- paste( ind.mg.3$CHR,ind.mg.3$BP,sep="_" )
+	ind.mg.3 <- data.frame( TAG=tag.ind.mg.3, ind.mg.3 )
+	ind.hap <- data.frame( TAG=tag.ind.hap, ind.hap )
+	ind.mg.4 <- merge( ind.mg.3,ind.hap, by="TAG", all=T )
+
+
+
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 	which.hap.ind <- union( which(nchar(as.character(hap$REF))>1), which(nchar(as.character(hap$ALT))>1) )
 	hap.ind.TF <- c("snp","ind")[factor(1:nrow(hap) %in% which.hap.ind)]
 	hap <- data.frame( TAG=paste(hap[,"CHR"],hap[,"BP"],sep="_"), TYPE=hap.ind.TF, hap )
@@ -184,12 +302,6 @@ for ( gtx in 1:n.gtx ) {
 
 	####################################################
 	## ORGANIZE DATA/FILES #############################
-	## Pull out Variant Positions from BIM files (& Compile to 1 file)
-	print( "Sorting Bim Files" )
-	gtx.snp.bim <- SNP.bim[ which(SNP.bim$CHR==chr & SNP.bim$BP>=rng[1] & SNP.bim$BP<=rng[2] ), ]
-	gtx.snp.bim <- data.frame( gtx.snp.bim, TYPE=rep("snp",nrow(gtx.snp.bim)), RAW_TAG=snp.raw.tag )
-	gtx.ind.bim <- IND.bim[ which(IND.bim$CHR==chr & IND.bim$BP>=rng[1] & IND.bim$BP<=rng[2] ), ]
-	gtx.ind.bim <- data.frame( gtx.ind.bim, TYPE=rep("ind",nrow(gtx.ind.bim)), RAW_TAG=ind.raw.tag )
 	gtx.bim <- rbind( gtx.snp.bim, gtx.ind.bim )
 	gtx.bim <- gtx.bim[ order(gtx.bim[,"BP"]), ]
 	## Merge BIM table w/ HWE table

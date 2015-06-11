@@ -180,6 +180,7 @@ for line in `tail -n+2 ${OUT_DIR}/Gene_Range.txt`
 do
  # Pull out Name/Coordinates for each Transcripts
 tag=`echo ${line} | awk '{print $1}'`
+gene=`echo ${tag} | awk -F_ '{print $1}'`
 chr=`echo ${line} | awk '{print $2}' | sed 's/chr//g'`
 start=$( expr `echo ${line} | awk '{print $3}'` - 5000 )
 stop=$( expr `echo ${line} | awk '{print $4}'` + 5000 )
@@ -225,6 +226,9 @@ cat ${OUT_PATH_GENE}/Annots.txt | cut -f2-7,${CUT_COLS} >> ${OUT_PATH_GENE}/Anno
  # Pull out eQTLs in desired locations
 zcat ${eQTL_TABLE} | head -1 > ${OUT_PATH_GENE}/eQTLs.txt
 tabix ${eQTL_TABLE} chr${chr}:${start}-${stop} >> ${OUT_PATH_GENE}/eQTLs.txt
+zcat ${eQTL_TABLE} | awk -v var="$gene" '$5 == var {print}' >> ${OUT_PATH_GENE}/eQTLs.txt
+cat ${OUT_PATH_GENE}/eQTLs.txt | sort -k3 -n | uniq > ${OUT_PATH_GENE}/eQTLs.2.txt
+mv ${OUT_PATH_GENE}/eQTLs.2.txt ${OUT_PATH_GENE}/eQTLs.txt
 fi
 
 done # Close Gene_Transcript Loop

@@ -131,11 +131,11 @@ GENE[,"n.EX"] <- EX_COUNT
  # Cohort Data
 FULL <- EXON <- DAMG <- list()
 
-PLOT_FRACTION <- 1/50
+PLOT_FRACTION <- 1/10 # 1/50
 start_time <- proc.time()
 ## LOOP START ######################################
-for ( gtx in 1:n.gtx ) {
-# for ( gtx in 401:n.gtx ) {
+# for ( gtx in 1:n.gtx ) {
+for ( gtx in 1562:n.gtx ) {
 # for ( gtx in 1751:n.gtx ) {
 	# gtx <- grep( "GRIN2B", GTX_LIST )
 	# gtx <- grep( "IL31RA_uc011cqj.2", GTX_LIST )
@@ -153,46 +153,49 @@ for ( gtx in 1:n.gtx ) {
 	print(paste( "####### Starting",gtx,"of",n.gtx,"-",name,"#####",round(proc.time()-start_time,2)[3] ))
 	
 	####################################################
-	## PULL GTX DATA/FILES #############################
-	
+	## LOAD/PULL GTX DATA/FILES ########################
+	print(paste( "Loading Files",round(proc.time()-start_time,2)[3] ))
+
 	## Check if files exist & contain >0 Lines
 	 # If not, skip to next Gene_Transcript
 	if ( !file.exists(paste(PathToGenes,name,"/SNP_Vars.hwe",sep="")) | !file.exists(paste(PathToGenes,name,"/IND_Vars.hwe",sep="")) ) { next }
 	if ( length(readLines(paste(PathToGenes,name,"/Phased.haps",sep="")))==0 ) { next }
 	
 	## Load HW Files
-	print( "Loading HW Files" )
-	snp.hwe <- read.table( paste(PathToGenes,name,"/SNP_Vars.hwe",sep=""), sep="",header=T )
-	ind.hwe <- read.table( paste(PathToGenes,name,"/IND_Vars.hwe",sep=""), sep="",header=T )
+	snp.hwe.l <- read.table( paste(PathToGenes,name,"/SNP_Vars.hwe",sep=""), sep="",header=T )
+	ind.hwe.l <- read.table( paste(PathToGenes,name,"/IND_Vars.hwe",sep=""), sep="",header=T )
 
 	## Load Genotype Files
-	print( "Loading Raw GT Files" )
-	snp.raw <- read.table( paste(PathToGenes,name,"/SNP_Vars.raw",sep=""), sep="",header=T )
-	ind.raw <- read.table( paste(PathToGenes,name,"/IND_Vars.raw",sep=""), sep="",header=T )
+	snp.raw.l <- read.table( paste(PathToGenes,name,"/SNP_Vars.raw",sep=""), sep="",header=T )
+	ind.raw.l <- read.table( paste(PathToGenes,name,"/IND_Vars.raw",sep=""), sep="",header=T )
 
 	## Load Phased Haplotype File (& Rename Columns)
-	print( "Loading Hap Files" )
-	hap <- read.table( paste(PathToGenes,name,"/Phased.haps",sep=""), sep="",header=F )
-	colnames(hap) <- hap.colnames
-	snp.hap <- hap[ which( hap$REF%in%c("C","G","T","A") & hap$ALT%in%c("C","G","T","A") ), ]
-	ind.hap <- hap[ -which( hap$REF%in%c("C","G","T","A") & hap$ALT%in%c("C","G","T","A") ), ]
+	hap.l <- read.table( paste(PathToGenes,name,"/Phased.haps",sep=""), sep="",header=F )
+	colnames(hap.l) <- hap.colnames
+	snp.hap <- hap.l[ which( hap.l$REF%in%c("C","G","T","A") & hap.l$ALT%in%c("C","G","T","A") ), ]
+	ind.hap <- hap.l[ -which( hap.l$REF%in%c("C","G","T","A") & hap.l$ALT%in%c("C","G","T","A") ), ]
 
 	## Pull out Variant Positions from BIM files (& Compile to 1 file)
-	print( "Pulling GTX Region from Bim Files" )
-	snp.bim <- SNP.bim[ which(SNP.bim$CHR==chr & SNP.bim$BP>=rng[1] & SNP.bim$BP<=rng[2] ), ]
-	ind.bim <- IND.bim[ which(IND.bim$CHR==chr & IND.bim$BP>=rng[1] & IND.bim$BP<=rng[2] ), ]
+	snp.bim.l <- SNP.bim[ which(SNP.bim$CHR==chr & SNP.bim$BP>=rng[1] & SNP.bim$BP<=rng[2] ), ]
+	ind.bim.l <- IND.bim[ which(IND.bim$CHR==chr & IND.bim$BP>=rng[1] & IND.bim$BP<=rng[2] ), ]
 
 	## Pull Out Single-Locus Results
 	if ( file.exists(PathToPheno) ) {
-		print( "Pulling out Single-Locus Results" )
-		snp.p <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>=tx_rng[1]-5000 & SNP.P$BP<=tx_rng[2]+5000 ), ]
-		ind.p <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>=tx_rng[1]-5000 & IND.P$BP<=tx_rng[2]+5000 ), ]
+		snp.p.l <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>=tx_rng[1]-5000 & SNP.P$BP<=tx_rng[2]+5000 ), ]
+		ind.p.l <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>=tx_rng[1]-5000 & IND.P$BP<=tx_rng[2]+5000 ), ]
 	}
 
+	## Load Annotation File
+	# annot <- read.table( paste(PathToGenes,name,"/Annots_Short.txt",sep=""), sep="\t",header=T )
+	# annot <- data.frame( TAG=paste(gsub("chr","",as.character(annot$Chromosome)),as.character(annot$End),sep="_"), annot)
+	# eqtls <- read.table( paste(PathToGenes,name,"/eQTLs.txt",sep=""), sep="",header=T )
+
 	####################################################
-	## FILTER/ORGANIZE SOME FILES ######################
+	## FILTER/ORGANIZE SOME TABLES #####################
+	print(paste( "Filtering Tables",round(proc.time()-start_time,2)[3] ))
 
 	## Get Intersection of Samples
+	snp.raw <- snp.raw.l ; ind.raw <- ind.raw.l
 	snp.raw[,"IID"] <- sapply(strsplit(as.character(snp.raw[,"IID"]),"-"),"[",1)
 	ind.raw[,"IID"] <- sapply(strsplit(as.character(ind.raw[,"IID"]),"-"),"[",1)
 	raw.samps <- intersect( snp.raw[,"IID"], ind.raw[,"IID"] )
@@ -203,7 +206,7 @@ for ( gtx in 1:n.gtx ) {
 	}
 	n.samps <- length(shared.samps)
 
-	## Remove unused Samples from RAW, HAP, and Pheno (if.exists) files
+	## Remove unused Samples from RAW, HAP, and Pheno (if.exists) tables
 	 # Raw Files
 	snp.raw <- snp.raw[ which(snp.raw[,"IID"]%in%shared.samps), ]
 	ind.raw <- ind.raw[ which(ind.raw[,"IID"]%in%shared.samps), ]
@@ -213,35 +216,42 @@ for ( gtx in 1:n.gtx ) {
 	ind.hap <- ind.hap[ ,c( 1:grep("ALT",colnames(ind.hap)),which(colnames(ind.hap)%in%hap.colnames.samp) ) ]
 
 	## Remove Superfluous Columns from HWE & Change colnames
+	snp.hwe <- snp.hwe.l ; ind.hwe <- ind.hwe.l
 	snp.hwe <- snp.hwe[ , -which(colnames(snp.hwe)%in%c("TEST","O.HET.","E.HET.")) ]
 	colnames(snp.hwe)[ncol(snp.hwe)] <- "P_HW"
 	ind.hwe <- ind.hwe[ , -which(colnames(ind.hwe)%in%c("TEST","O.HET.","E.HET.")) ]
 	colnames(ind.hwe)[ncol(ind.hwe)] <- "P_HW"
 
-	## Remove Superfluous Columns from BIM file
+	## Remove Superfluous Columns from BIM table
+	snp.bim <- snp.bim.l ; ind.bim <- ind.bim.l
 	snp.bim <- snp.bim[ , -which(colnames(snp.bim)%in%c("XXX")) ]
 	ind.bim <- ind.bim[ , -which(colnames(ind.bim)%in%c("XXX")) ]
 
 	####################################################
-	## CREATE VARIANT TAGS & MERGE FILES ###############
+	## CREATE VARIANT TAGS & MERGE TABLES ##############
+	print(paste( "Merging Tables",round(proc.time()-start_time,2)[3] ))
 
-	## Tag for Hap File
+	## Tag for Hap tables
 	tag.snp.hap <- paste( snp.hap[,"CHR"],snp.hap[,"BP"],sep="_" )
 	tag.ind.hap <- paste( ind.hap[,"CHR"],ind.hap[,"BP"],sep="_" )
+	 # Include into HAP tables
+	snp.hap.2 <- data.frame( TAG=tag.snp.hap, snp.hap[,-which(colnames(snp.hap)%in%c("CHR","SNP","BP","REF","ALT"))] )
+	ind.hap.2 <- data.frame( TAG=tag.ind.hap, ind.hap[,-which(colnames(ind.hap)%in%c("CHR","SNP","BP","REF","ALT"))] )
 
-	## Tag for Raw File
+	## Tag for Raw tables
 	tag.snp.raw <- colnames(snp.raw)[(grep("PHENOTYPE",colnames(snp.raw))+1):ncol(snp.raw)]
 	tag.ind.raw <- colnames(ind.raw)[(grep("PHENOTYPE",colnames(ind.raw))+1):ncol(ind.raw)]
 
-	## Add Raw Tag to BIM file
+	## Add Raw Tag to BIM tables
 	snp.bim <- data.frame( snp.bim, TYPE="snp", RAW_TAG=tag.snp.raw )
 	ind.bim <- data.frame( ind.bim, TYPE="ind", RAW_TAG=tag.ind.raw )
 
-	## Merge HWE & BIM files
+	## Merge HWE & BIM tables
 	snp.mg.1 <- merge( snp.bim, snp.hwe[,-which(colnames(snp.hwe)%in%c("CHR"))], by="SNP", all=T )
 	ind.mg.1 <- merge( ind.bim, ind.hwe[,-which(colnames(ind.hwe)%in%c("CHR"))], by="SNP", all=T )
 
-	## Merge MG.1 and P Files (if Pheno exists)
+	## Merge MG.1 and P tables (if Pheno exists)
+	snp.p <- snp.p.l ; ind.p <- ind.p.l
 	if ( file.exists(PathToPheno) ) {
 		colnames(snp.p)[ncol(snp.p)] <- "P_Assoc"
 		snp.mg.2 <- merge( snp.mg.1, snp.p[c("SNP","P_Assoc")], by="SNP",all=T )
@@ -252,121 +262,128 @@ for ( gtx in 1:n.gtx ) {
 		ind.mg.2 <- ind.mg.1
 	}
 
-	## Merge MG.2 and RAW Files
+	## Merge MG.2 and RAW tables
 	snp.raw.t <- snp.raw[,tag.snp.raw] ; rownames(snp.raw.t) <- snp.raw[,"IID"]
 	snp.raw.t <- t(snp.raw.t)
 	snp.mg.3 <- merge( snp.mg.2, snp.raw.t, by.x="RAW_TAG",by.y="row.names",all=T )
 	ind.raw.t <- ind.raw[,tag.ind.raw] ; rownames(ind.raw.t) <- ind.raw[,"IID"]
 	ind.raw.t <- t(ind.raw.t)
 	ind.mg.3 <- merge( ind.mg.2, ind.raw.t, by.x="RAW_TAG",by.y="row.names",all=T )
-
-	## Merge MG.3 and HAP files
+	 # Tag for MG.3
 	tag.snp.mg.3 <- paste( snp.mg.3$CHR,snp.mg.3$BP,sep="_" )
-	snp.mg.3 <- data.frame( TAG=tag.snp.mg.3, snp.mg.3 )
-	snp.hap <- data.frame( TAG=tag.snp.hap, snp.hap )
-	snp.mg.4 <- merge( snp.mg.3,snp.hap, by="TAG", all=T )
 	tag.ind.mg.3 <- paste( ind.mg.3$CHR,ind.mg.3$BP,sep="_" )
+	snp.mg.3 <- data.frame( TAG=tag.snp.mg.3, snp.mg.3 )
 	ind.mg.3 <- data.frame( TAG=tag.ind.mg.3, ind.mg.3 )
-	ind.hap <- data.frame( TAG=tag.ind.hap, ind.hap )
-	ind.mg.4 <- merge( ind.mg.3,ind.hap, by="TAG", all=T )
 
-
-
-
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% HERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-	which.hap.ind <- union( which(nchar(as.character(hap$REF))>1), which(nchar(as.character(hap$ALT))>1) )
-	hap.ind.TF <- c("snp","ind")[factor(1:nrow(hap) %in% which.hap.ind)]
-	hap <- data.frame( TAG=paste(hap[,"CHR"],hap[,"BP"],sep="_"), TYPE=hap.ind.TF, hap )
-	## Load Annotation File
-	# annot <- read.table( paste(PathToGenes,name,"/Annots_Short.txt",sep=""), sep="\t",header=T )
-	# annot <- data.frame( TAG=paste(gsub("chr","",as.character(annot$Chromosome)),as.character(annot$End),sep="_"), annot)
-	# eqtls <- read.table( paste(PathToGenes,name,"/eQTLs.txt",sep=""), sep="",header=T )
+	## Merge MG.3 and HAP tables
+	snp.mg.4 <- merge( snp.mg.3,snp.hap.2, by="TAG", all=T )
+	ind.mg.4 <- merge( ind.mg.3,ind.hap.2, by="TAG", all=T )
 
 	####################################################
-	## ORGANIZE DATA/FILES #############################
-	gtx.bim <- rbind( gtx.snp.bim, gtx.ind.bim )
-	gtx.bim <- gtx.bim[ order(gtx.bim[,"BP"]), ]
-	## Merge BIM table w/ HWE table
-	print( "Merging BIM/HW Files" )
-	gtx.mg <- merge( gtx.bim[,c("SNP","BP","TYPE","RAW_TAG")], gtx.hwe, by="SNP", all=T )
-	gtx.mg <- data.frame( TAG=paste(gtx.mg[,"CHR"],gtx.mg[,"BP"],sep="_"), gtx.mg )
-	gtx.mg <- gtx.mg[ ,c("TAG","RAW_TAG","CHR","BP","SNP","TYPE","A1","A2","GENO","P") ]
-	colnames(gtx.mg)[ncol(gtx.mg)] <- "P_HW"
-	GTX <- gtx.mg
+	## CLASSIFY VARIANTS ###############################
+	print(paste( "Classifying Variants",round(proc.time()-start_time,2)[3] ))
+
+	## Specify tables for Subsequent Analyses
+	VAR <- rbind( snp.mg.4, ind.mg.4 )
+	VAR <- VAR[ order(VAR$BP,decreasing=F), ]
+
 	## Remove HW Violations
-	RM.hwe <- which( GTX$P_HW < 1e-20 )
-	if ( length(RM.hwe)>0 ) { 
-		RM.hwe.tags <- as.character( GTX$TAG[ RM.hwe ] )
-		GTX <- GTX[ -RM.hwe, ]
-	}
+	VAR <- VAR[ which(VAR$P_HW>1e-20), ]
+
 	## Compile which variants are in Exons
-	print( "Pulling out Exonic Variants" )
 	TAG.exon <- c()
 	for ( e in 1:ex_cnt ) {
-		WHICH <- which( gtx.mg[,"BP"]>ex_b[e] & gtx.mg[,"BP"]<ex_e[e] )
-		if ( length(WHICH)>0) { TAG.exon <- c( TAG.exon, as.character(gtx.mg[WHICH,"TAG"]) ) }
-	}
-	## Pull Out Single-Locus Results
-	if ( file.exists(PathToPheno) ) {
-		print( "Pulling out Single-Locus Results" )
-		snp.p <- SNP.P[ which(SNP.P$CHR==chr & SNP.P$BP>=tx_rng[1]-5000 & SNP.P$BP<=tx_rng[2]+5000 ), ]
-		ind.p <- IND.P[ which(IND.P$CHR==chr & IND.P$BP>=tx_rng[1]-5000 & IND.P$BP<=tx_rng[2]+5000 ), ]
-		gtx.p <- rbind( snp.p, ind.p )
-		gtx.p <- gtx.p[order(gtx.p[,"BP"]),]
-		gtx.p <- data.frame( TAG=paste(gtx.p[,"CHR"],gtx.p[,"BP"],sep="_"), gtx.p )
-		# Merge with HWE Data (compile all PLink data)
-		gtx.mg.p <- merge( gtx.mg, gtx.p[,c("SNP","P")], by="SNP", all=T )
-		colnames(gtx.mg.p)[which(colnames(gtx.mg.p)=="P")] <- "P_Assoc"
-		gtx.mg.p <- gtx.mg.p[ order(gtx.mg.p[,"BP"]), ]
-		gtx.mg.p <- gtx.mg.p[ ,c("TAG","RAW_TAG","CHR","BP","SNP","TYPE","A1","A2","P_Assoc","GENO","P_HW") ]
-		GTX <- gtx.mg.p
+		WHICH <- which( VAR[,"BP"]>ex_b[e] & VAR[,"BP"]<ex_e[e] )
+		if ( length(WHICH)>0) { TAG.exon <- c( TAG.exon, as.character(VAR[WHICH,"TAG"]) ) }
 	}
 
 	## Specify Location of Variant (relative to Exon/Intron/Etc)
-	print( "Specifying Variant Locations" )
-	GTX <- data.frame( GTX, LOC=rep(1,nrow(GTX)) )
-	GTX[ which( GTX[,"BP"]>=tx_rng[1] & GTX[,"BP"]<=tx_rng[2] ), "LOC" ] <- 2
-	GTX[ which( GTX[,"BP"]>=cd_rng[1] & GTX[,"BP"]<=cd_rng[2] ), "LOC" ] <- 3
-	GTX[ which( GTX[,"TAG"] %in% TAG.exon ), "LOC" ] <- 4
-	## Calculate Allele Frequencies
-	print( "Calculating MAF" )
-	gtx.geno.arr <- t(sapply( strsplit( as.character(GTX[,"GENO"]), "/" ), "[", 1:3 ))
-	gtx.af <- matrix( as.numeric(gtx.geno.arr), ncol=3 ) %*% matrix(2:0,c(3,1)) / (2*n.samps)
-	GTX <- data.frame( GTX, MAF=gtx.af )
-	## Merge with Haplotype File
-	GTX.ph <- merge( GTX, hap[,-which(colnames(hap)%in%c("TYPE","CHR","SNP","BP"))], by="TAG", all=T )
+	LOC <- rep(1,nrow(VAR))
+	LOC[ which( VAR[,"BP"]>=tx_rng[1] & VAR[,"BP"]<=tx_rng[2] ) ] <- 2
+	LOC[ which( VAR[,"BP"]>=cd_rng[1] & VAR[,"BP"]<=cd_rng[2] ) ] <- 3
+	LOC[ which( VAR[,"TAG"] %in% TAG.exon ) ] <- 4
+	VAR <- data.frame( VAR, LOC )
+
+	## Identify Potential Strand Issues **** WORK IN PROGRESS ****
+	REF <- as.character( VAR$REF )
+	ALT <- as.character( VAR$ALT )
+	A1 <-  as.character( VAR$A1 )
+	A2 <-  as.character( VAR$A2 )
+	length(which(REF==A1)) / nrow(VAR)
+	length(which(REF==A2)) / nrow(VAR)
+	length(which(ALT==A1)) / nrow(VAR)
+	length(which(ALT==A2)) / nrow(VAR)
+
+	## Identify Discordant Calls b/n Phased & Raw tables
+	 # Validate Genotype Frequencies w/ RAW and HAP tables
+	MAF.raw <- apply( VAR[,which(colnames(VAR)%in%shared.samps)], 1, sum ) / (2*n.samps)
+	MAF.hap <- apply( VAR[,which(colnames(VAR)%in%hap.colnames.samp)], 1, sum,na.rm=T ) / (2*n.samps)
+	MAF <- data.frame( RAW=MAF.raw, HAP=MAF.hap, SUM=MAF.raw+MAF.hap, DIFF=MAF.raw-MAF.hap )
+	FLIP.which.m <- which( MAF$SUM==1 | (MAF$SUM>.9 & abs(MAF$DIFF)>.1) ) # FLIP.which <- which( MAF$SUM==1 | (MAF$SUM>.8 & abs(MAF$DIFF)>.2) )
+	 # Identify Discordant Calls for each Sample
+	DISC.which.1 <- DISC.which.2 <- DISC.which.r <- list()
+	for ( s in 1:n.samps ) {
+		samp <- shared.samps[s]
+		# print(samp)
+		col.1 <- paste(samp,"1",sep="_")
+		col.2 <- paste(samp,"2",sep="_")
+		col.r <- samp
+		disc.hap.1 <- which( VAR[,col.1]==1 & VAR[,col.r]==0 )
+		disc.hap.2 <- which( VAR[,col.2]==1 & VAR[,col.r]==0 )
+		disc.hap.r <- which( VAR[,col.r] > rowSums(VAR[,c(col.1,col.2)]) )
+		DISC.which.1[[samp]] <- disc.hap.1
+		DISC.which.2[[samp]] <- disc.hap.2
+		DISC.which.r[[samp]] <- disc.hap.r
+	}
+	TAB.disc.1 <- table(unlist(DISC.which.1))
+	TAB.disc.2 <- table(unlist(DISC.which.2))
+	TAB.disc.r <- table(unlist(DISC.which.r))
+	FLIP.which.1 <- names(TAB.disc.1)[which(TAB.disc.1>1)]
+	FLIP.which.2 <- names(TAB.disc.2)[which(TAB.disc.2>1)]
+	FLIP.which.r <- names(TAB.disc.r)[which(TAB.disc.r>1)]
+
+	FLIP.tab <- table( c(FLIP.which.m,FLIP.which.1,FLIP.which.2,FLIP.which.r) )
+	FLIP <- sort( as.numeric(names(FLIP.tab)[which(FLIP.tab>1)]) )
+
+	## Flip Variants w/ Strand Issue
+	VAR[FLIP,hap.colnames.samp] <- -VAR[FLIP,hap.colnames.samp] + 1
+	# VAR.2 <- VAR
+	# VAR.2[FLIP,hap.colnames.samp] <- -VAR.2[FLIP,hap.colnames.samp] + 1
+
+	## Add MAF into 
+	MAF.raw <- apply( VAR[,which(colnames(VAR)%in%shared.samps)], 1, sum ) / (2*n.samps)
+	MAF.hap <- apply( VAR[,which(colnames(VAR)%in%hap.colnames.samp)], 1, sum,na.rm=T ) / (2*n.samps)
+	MAF <- data.frame( RAW=MAF.raw, HAP=MAF.hap, SUM=MAF.raw+MAF.hap, DIFF=MAF.raw-MAF.hap )
+	VAR <- data.frame( VAR, MAF_raw=MAF.raw, MAF_hap=MAF.hap, PHAS=as.numeric(!is.na(VAR[,hap.colnames.samp[4]])) )
+
+	## Create Exon, SNP, and Indel Tables
+	which.snp <- which(VAR$TYPE=="snp")
+	which.ind <- which(VAR$TYPE=="ind")
+	which.exon <- which(VAR$LOC==4)
+	SNP <- VAR[ which.snp, ]
+	IND <- VAR[ which.ind, ]
+	VAR.exon <- VAR[ which.exon, ]
+	SNP.exon <- VAR.exon[ intersect(which.snp,which.exon), ]
+	IND.exon <- VAR.exon[ intersect(which.ind,which.exon), ]
+	 # Get SNP, Indel, Exonic Var Counts
+  	n.snp <- length( which.ind )
+ 	n.ind <- length( which.ind )
+   	n.snp.exon <- length( intersect(which.snp,which.exon) )
+   	n.ind.exon <- length( intersect(which.ind,which.exon) )
+ 
 
 	####################################################
 	## PLOT GENE MAP & GWAS RESULTS ####################
-	PLOT_RUNIF <- runif(1,0,1)
+	print(paste( "Plotting Gene Map",round(proc.time()-start_time,2)[3] ))
 
-	## GENE MAPS ##
-	print( "Plotting Gene Map" )
+	PLOT_RUNIF <- runif(1,0,1)
 	## Set Plotting Parameters
-	NUM_VARS <- nrow(GTX)
+	NUM_VARS <- nrow(VAR)
 	COLS.gene <- c("steelblue1","cadetblue1","slateblue2")
 	COLS.P.list <- c("firebrick4","steelblue3","cadetblue3","slateblue3")
 	XLIM <- c(rng[1],rng[2])
 	if ( file.exists(PathToPheno) ) {
- 		YLIM <- c( -1, max( 4, max(-log10(GTX[,"P_Assoc"]),na.rm=T) ) )
+ 		YLIM <- c( -1, max( 4, max(-log10(VAR[,"P_Assoc"]),na.rm=T) ) )
  	}else{ YLIM <- c(-1,1) }
 	Y <- 0
 	if ( YLIM[2]>4 | PLOT_RUNIF<PLOT_FRACTION ) {
@@ -374,13 +391,13 @@ for ( gtx in 1:n.gtx ) {
 		plot(0,0,type="n", xlim=XLIM,ylim=YLIM, xlab=paste("Chromosome",chr,"Position"),ylab="-log10(p)", main=paste("Map & Single-Locus Results of:",name), yaxt="n" )
 		## Plot P-Values
 		if ( file.exists(PathToPheno) ) {
-			WHICH <- which(!is.na( GTX$P_Assoc))
-			COLS.P <- COLS.P.list[ GTX$LOC ]
+			WHICH <- which(!is.na( VAR$P_Assoc))
+			COLS.P <- COLS.P.list[ VAR$LOC ]
 			abline( h=seq(0,YLIM[2],1), lty=2, col="grey50" )
 			abline( h=seq(-1,0,.1), lty=2, col="grey50" )
 			axis(2, at=seq(-1,YLIM[2],1) )
-			points( GTX$BP[WHICH], -log10(GTX$P_Assoc[WHICH]), col=COLS.P[WHICH], pch=c(10,16)[factor(GTX$TYPE[WHICH])], lwd=3, cex=2*(GTX$MAF[WHICH])^(1/6) )
-		}
+			points( VAR$BP[WHICH], -log10(VAR$P_Assoc[WHICH]), col=COLS.P[WHICH], pch=c(10,16)[factor(VAR$TYPE[WHICH])], lwd=3, cex=2*(VAR$MAF_raw[WHICH])^(1/6) )
+		}else{ WHICH <- which(VAR$MAF_raw>.01) }
 		## Plot Gene Borders
 		arrows( tx_rng[1],Y,tx_rng[2],Y, code=3,angle=90, lwd=5,col=COLS.gene[1] )
 		abline( h=Y, col="grey50",lwd=1 )
@@ -391,41 +408,41 @@ for ( gtx in 1:n.gtx ) {
 		}
 		arrows( tx_rng[1],Y,tx_rng[2],Y, code=3,angle=90,length=0, lwd=5,col=COLS.gene[1] )
 		## Plot Allele Frequency
-		arrows( GTX$BP, 0, GTX$BP, -GTX$MAF, col=COLS.P, angle=90 )
+		arrows( VAR$BP[WHICH], 0, VAR$BP[WHICH], -VAR$MAF_raw[WHICH], col=COLS.P, angle=90 )
 		dev.off()
 	} # Close Gene Map "IF"
 
-	## QQ PLOTS ##
+	## QQ Plot
 	print( "Plotting QQ Plot" )
 	if ( file.exists(PathToPheno) ) {
-		NUM_VARS <- length(which( !is.na(GTX$P_Assoc) ))
-		NUM_EXONIC <- length(which( !is.na(GTX$P_Assoc) & GTX$LOC==4 ))
+		NUM_VARS <- length(which( !is.na(VAR$P_Assoc) ))
+		NUM_EXONIC <- length(which( !is.na(VAR$P_Assoc) & VAR$LOC==4 ))
 		COLS <- c("steelblue1","slateblue1")
 		COLS.4 <- gsub("1","3",COLS)
-		LIM <- c( 0, max( 4, max(-log10(GTX[,"P_Assoc"]),na.rm=T) ) )
+		LIM <- c( 0, max( 4, max(-log10(VAR[,"P_Assoc"]),na.rm=T) ) )
 		## Calculate Observed, Expected, & Area for Plot
 		 # Expected & Observed
 		EXP.full <- -log10( 1:NUM_VARS / NUM_VARS )
-		OBS.full <- -log10( sort( GTX$P_Assoc ) )
-		IND.full <- c(1:length(EXP.full),length(EXP.full),1)
+		OBS.full <- -log10( sort( VAR$P_Assoc ) )
+		IDX.full <- c(1:length(EXP.full),length(EXP.full),1)
 		 # Calculate Area - Trapezoid Rule
 		H_VALS <- EXP.full[2:NUM_VARS-1] - EXP.full[2:NUM_VARS]
 		B_SUM <- ( OBS.full[2:NUM_VARS-1]-EXP.full[2:NUM_VARS-1] ) + ( OBS.full[2:NUM_VARS]-EXP.full[2:NUM_VARS] )
 		AREA.full.traps <- .5*H_VALS*B_SUM
 		AREA.full <- sum( AREA.full.traps ) # - .5*max(EXP.full)^2
-		GENE[gtx,"AREA"] <- AREA.full
+		GENE[gtx,"AREA"] <- round( AREA.full, 5)
 		GENE[gtx,"BEST_P"] <- 10^(min(-OBS.full,na.rm=T))
 		if ( NUM_EXONIC > 0 ) {
 			 # Expected & Observed
 			EXP.exon <- -log10( 1:NUM_EXONIC / NUM_EXONIC )
-			OBS.exon <- -log10( sort( GTX$P_Assoc[which(GTX$LOC==4)] ) )
-			IND.exon <- c(1:length(EXP.exon),length(EXP.exon),1)
+			OBS.exon <- -log10( sort( VAR$P_Assoc[which(VAR$LOC==4)] ) )
+			IDX.exon <- c(1:length(EXP.exon),length(EXP.exon),1)
 			 # Calculate Area - Trapezoid Rule
 			H_VALS <- EXP.exon[2:NUM_EXONIC-1] - EXP.exon[2:NUM_EXONIC]
 			B_SUM <- ( OBS.exon[2:NUM_EXONIC-1]-EXP.exon[2:NUM_EXONIC-1] ) + ( OBS.exon[2:NUM_EXONIC]-EXP.exon[2:NUM_EXONIC] )
 			AREA.exon.traps <- .5*H_VALS*B_SUM
 			AREA.exon <- sum( AREA.exon.traps ) # - .5*max(EXP.exon)^2
-			GENE[gtx,"AREA.ex"] <- AREA.exon
+			GENE[gtx,"AREA.ex"] <- round( AREA.exon, 5)
 			GENE[gtx,"BEST_P.ex"] <- 10^(min(-OBS.exon,na.rm=T))
 		}
 		## Make Plot		
@@ -437,12 +454,12 @@ for ( gtx in 1:n.gtx ) {
 			abline( v=seq(0,LIM[2],1), lty=2,lwd=1,col="grey50")
 			abline( 0,1, lty=1,lwd=2,col="black" )
 			## Plot Full Set
-			polygon( EXP.full[IND.full], c(OBS.full,EXP.full[c(NUM_VARS,1)]), col=COLS[1], border=COLS.4[1], density=20,angle=45 )
+			polygon( EXP.full[IDX.full], c(OBS.full,EXP.full[c(NUM_VARS,1)]), col=COLS[1], border=COLS.4[1], density=20,angle=45 )
 			points( EXP.full, OBS.full, pch="+", col=COLS.4[1], type="o" )
 			text( quantile(LIM,.7),quantile(LIM,.1), label=paste("Area:",round(AREA.full,3),"-",NUM_VARS,"Vars"), col=COLS.4[1], cex=1.2 )
 			## Plot Exon Set
 			if ( NUM_EXONIC > 0 ) {
-				polygon( EXP.exon[IND.exon], c(OBS.exon,EXP.exon[c(NUM_EXONIC,1)]), col=COLS[2], border=COLS.4[2], density=20,angle=-45 )
+				polygon( EXP.exon[IDX.exon], c(OBS.exon,EXP.exon[c(NUM_EXONIC,1)]), col=COLS[2], border=COLS.4[2], density=20,angle=-45 )
 				points( EXP.exon, OBS.exon, pch="+", col=COLS.4[2], type="o" )	
 				text( quantile(LIM,.7),quantile(LIM,.07), label=paste("Area:",round(AREA.exon,3),"-",NUM_EXONIC,"Vars"), col=COLS.4[2], cex=1.2 )
 			}
@@ -452,218 +469,199 @@ for ( gtx in 1:n.gtx ) {
 	}
 
 	####################################################
-	## COMPILE STATS ABOUT VARIANTS/COHORT #############
+	## COMPILE STATS ABOUT GENE TRANSCRIPT #############
+	print(paste( "Compiling Gene Stats",round(proc.time()-start_time,2)[3] ))
 	 # By Location
 	   # Ovarall
  	   # Exonic
  	   # Intronic
 	   # Damaging (?)
+
+ 	## Compile Info about the Gene_Transcript
+ 	 # Full
+ 	GENE[gtx,"n.VAR"] <- nrow(VAR)
+ 	GENE[gtx,"n.SNP"] <- length(which( VAR$TYPE=="snp" ))
+ 	GENE[gtx,"n.IND"] <- length(which( VAR$TYPE=="ind" ))
+ 	GENE[gtx,"n.VAR.ph"] <- length(which(VAR$PHAS==1))
+ 	GENE[gtx,"n.SNP.ph"] <- length(which(VAR$PHAS==1 & VAR$TYPE=="snp" ))
+ 	GENE[gtx,"n.IND.ph"] <- length(which(VAR$PHAS==1 & VAR$TYPE=="ind" ))
+ 	 # Exon
+ 	GENE[gtx,"n.VAR.ex"] <- nrow(VAR.exon)
+ 	GENE[gtx,"n.SNP.ex"] <- length(which( VAR.exon$TYPE=="snp" ))
+ 	GENE[gtx,"n.IND.ex"] <- length(which( VAR.exon$TYPE=="ind" ))
+ 	GENE[gtx,"n.VAR.ph.ex"] <- length(which(VAR.exon$PHAS==1))
+ 	GENE[gtx,"n.SNP.ph.ex"] <- length(which(VAR.exon$PHAS==1 & VAR.exon$TYPE=="snp" ))
+ 	GENE[gtx,"n.IND.ph.ex"] <- length(which(VAR.exon$PHAS==1 & VAR.exon$TYPE=="ind" ))
+
+	####################################################
+	## COMPILE STATS ABOUT COHORT ######################
+	print(paste( "Compiling Cohort Stats",round(proc.time()-start_time,2)[3] ))
 	 # What to compile
 	   # % Phased
  	   # How many hets, hom_vars pp (SNPs & Indels separate)
  	   # How many comp hets pp
 
- 	## Compile Info about the Gene_Transcript
- 	print( "Compiling Gene Stats" )
- 	## Gene
- 	 # Full
- 	GENE[gtx,"n.VAR"] <- nrow(GTX)
- 	GENE[gtx,"n.SNP"] <- length(which( GTX$TYPE=="snp" ))
- 	GENE[gtx,"n.IND"] <- length(which( GTX$TYPE=="ind" ))
- 	GENE[gtx,"n.VAR.ph"] <- nrow(hap)
- 	GENE[gtx,"n.SNP.ph"] <- length(which( hap[,"TYPE"]=="snp" ))
- 	GENE[gtx,"n.IND.ph"] <- length(which( hap[,"TYPE"]=="ind" ))
- 	 # Exon
- 	GTX.exon <- GTX[ which(GTX$LOC==4), ]
- 	GTX.ph.exon <- GTX.ph[ which(GTX.ph$LOC==4), ]
- 	hap.exon <- hap[ which(hap$TAG %in% TAG.exon), ]
- 	GENE[gtx,"n.VAR.ex"] <- nrow(GTX.exon)
- 	GENE[gtx,"n.SNP.ex"] <- length(which( GTX.exon$TYPE=="snp" ))
- 	GENE[gtx,"n.IND.ex"] <- length(which( GTX.exon$TYPE=="ind" ))
- 	GENE[gtx,"n.VAR.ph.ex"] <- nrow(hap.exon)
- 	GENE[gtx,"n.SNP.ph.ex"] <- length(which( hap.exon[,"TYPE"]=="snp" ))
- 	GENE[gtx,"n.IND.ph.ex"] <- length(which( hap.exon[,"TYPE"]=="ind" ))
+	# ## Cohort - Full ###################################
+ # 	colnames.FL <- c("HET_snp","HOM_VAR_snp","N_PHAS_snp","PRC_PHAS_snp","HAP1_snp","HAP2_snp","UNPH_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","N_PHAS_ind","PRC_PHAS_ind","HAP1_ind","HAP2_ind","UNPH_ind","COMP_HET_ind","COMP_HET_any")
+ # 	FULL[[name]] <- array( ,c(n.samps,length(colnames.FL)) )
+ # 	rownames(FULL[[name]]) <- shared.samps
+ # 	colnames(FULL[[name]]) <- colnames.FL
+ # 	## How many Hets & Hom_Vars?
+ # 	if ( n.snp>0 ) {
+ # 		FULL[[name]][,"HET_snp"] <- apply( SNP[,shared.samps], 2, function(x) length(which(x==1)) )
+ # 		FULL[[name]][,"HOM_VAR_snp"] <- apply( SNP[,shared.samps], 2, function(x) length(which(x==2)) )
+ # 	}else{ FULL[[name]][,"HET_snp"] <- FULL[[name]][,"HOM_VAR_snp"] <- 0 }
+ # 	if ( n.ind>0 ) {
+ # 		FULL[[name]][,"HET_ind"] <- apply( IND[,shared.samps], 2, function(x) length(which(x==1)) )
+ # 		FULL[[name]][,"HOM_VAR_ind"] <- apply( IND[,shared.samps], 2, function(x) length(which(x==2)) )
+ # 	}else{ FULL[[name]][,"HET_ind"] <- FULL[[name]][,"HOM_VAR_ind"] <- 0 }
 
-	## Cohort - Full ###################################
- 	print( "Compiling Cohort Stats (Full)" )
- 	colnames.FL <- c("HET_snp","HOM_VAR_snp","PRC_PHAS_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","PRC_PHAS_ind","COMP_HET_ind","COMP_HET_any","HAP1_snp","HAP2_snp","UNPH_snp","HAP1_ind","HAP2_ind","UNPH_ind")
+	# ## What percent of variants were phased?
+	# hap.1.cols <- hap.colnames.samp[seq(1,2*n.samps,2)]
+	# hap.2.cols <- hap.colnames.samp[seq(2,2*n.samps,2)]
+ # 	 # SNP
+ # 	hap.snp.diffs <- SNP[,hap.1.cols] - SNP[,hap.2.cols]
+ # 	# colnames(hap.snp.diffs) <- gsub( "_1","", colnames(hap.snp.diffs) )
+	# hap.snp.n.hets <- apply( hap.snp.diffs, 2, function(x) length(which(x!=0)) )
+ # 	FULL[[name]][,"N_PHAS_snp"] <- hap.snp.n.hets
+ # 	FULL[[name]][,"PRC_PHAS_snp"] <- FULL[[name]][,"N_PHAS_snp"] / FULL[[name]][,"HET_snp"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.snp.n.hets / FULL[[name]][,"HET_snp"]
+ # 	FULL[[name]][,"HAP1_snp"] <- colSums( SNP[,hap.1.cols],na.rm=T )
+ # 	FULL[[name]][,"HAP2_snp"] <- colSums( SNP[,hap.2.cols],na.rm=T )
+ # 	FULL[[name]][,"UNPH_snp"] <- FULL[[name]][,"HET_snp"] - FULL[[name]][,"N_PHAS_snp"]
+ # 	 # Indel
+ # 	hap.ind.diffs <- IND[,hap.1.cols] - IND[,hap.2.cols]
+ # 	# colnames(hap.ind.diffs) <- gsub( "_1","", colnames(hap.ind.diffs) )
+	# hap.ind.n.hets <- apply( hap.ind.diffs, 2, function(x) length(which(x!=0)) )
+ # 	FULL[[name]][,"N_PHAS_ind"] <- hap.ind.n.hets
+ # 	FULL[[name]][,"PRC_PHAS_ind"] <- FULL[[name]][,"N_PHAS_ind"] / FULL[[name]][,"HET_ind"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.ind.n.hets / FULL[[name]][,"HET_ind"]
+ # 	FULL[[name]][,"HAP1_ind"] <- colSums( SNP[,hap.1.cols],na.rm=T )
+ # 	FULL[[name]][,"HAP2_ind"] <- colSums( SNP[,hap.2.cols],na.rm=T )
+ # 	FULL[[name]][,"UNPH_ind"] <- FULL[[name]][,"HET_ind"] - FULL[[name]][,"N_PHAS_ind"]
+ # 	 # Which Samples have a Compound Het?
+ # 	FULL[[name]][,"COMP_HET_snp"] <- as.numeric( apply( hap.snp.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
+ # 	FULL[[name]][,"COMP_HET_ind"] <- as.numeric( apply( hap.ind.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
+ #  	FULL[[name]][,"COMP_HET_any"] <- as.numeric( apply( hap.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
+
+	## Cohort - Exon ###################################
+ 	colnames.FL <- c("HET_snp","HOM_VAR_snp","N_PHAS_snp","PRC_PHAS_snp","HAP1_snp","HAP2_snp","UNPH_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","N_PHAS_ind","PRC_PHAS_ind","HAP1_ind","HAP2_ind","UNPH_ind","COMP_HET_ind","COMP_HET_any")
  	FULL[[name]] <- array( ,c(n.samps,length(colnames.FL)) )
  	rownames(FULL[[name]]) <- shared.samps
  	colnames(FULL[[name]]) <- colnames.FL
-   	n.snp <- ncol(snp.raw)-6
- 	n.ind <- ncol(ind.raw)-6
-	 # How many Hets?
+ 	## SNP Stats
  	if ( n.snp>0 ) {
- 		if ( n.snp==1 ) {
- 			FULL[[name]][,"HET_snp"] <- as.numeric( snp.raw[order(snp.raw[,"IID"]),7]==1 )
- 		}else{ FULL[[name]][,"HET_snp"] <- apply( snp.raw[order(snp.raw[,"IID"]),7:ncol(snp.raw)], 1, function(x) length(which(x==1)) ) }
- 	}else{ FULL[[name]][,"HET_snp"] <- 0 }
+		# How many Hets & Hom_Vars?
+ 		FULL[[name]][,"HET_snp"] <- apply( SNP[,shared.samps], 2, function(x) length(which(x==1)) )
+ 		FULL[[name]][,"HOM_VAR_snp"] <- apply( SNP[,shared.samps], 2, function(x) length(which(x==2)) )
+		# What percent of variants were phased?
+		hap.1.cols <- hap.colnames.samp[seq(1,2*n.samps,2)]
+		hap.2.cols <- hap.colnames.samp[seq(2,2*n.samps,2)]
+	 	hap.snp.diffs <- SNP[,hap.1.cols] - SNP[,hap.2.cols]
+		hap.snp.n.hets <- apply( hap.snp.diffs, 2, function(x) length(which(x!=0)) )
+	 	FULL[[name]][,"N_PHAS_snp"] <- hap.snp.n.hets
+	 	FULL[[name]][,"PRC_PHAS_snp"] <- FULL[[name]][,"N_PHAS_snp"] / FULL[[name]][,"HET_snp"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.snp.n.hets / FULL[[name]][,"HET_snp"]
+	 	FULL[[name]][,"HAP1_snp"] <- colSums( SNP[,hap.1.cols],na.rm=T )
+	 	FULL[[name]][,"HAP2_snp"] <- colSums( SNP[,hap.2.cols],na.rm=T )
+	 	FULL[[name]][,"UNPH_snp"] <- FULL[[name]][,"HET_snp"] - FULL[[name]][,"N_PHAS_snp"]
+ 	}else{
+ 		FULL[[name]][,"HET_snp"] <- FULL[[name]][,"HOM_VAR_snp"] <- FULL[[name]][,"N_PHAS_snp"] <- FULL[[name]][,"HAP1_snp"] <- FULL[[name]][,"HAP2_snp"] <- FULL[[name]][,"UNPH_snp"] <- 0
+ 		FULL[[name]][,"PRC_PHAS_snp"] <- NA
+	}
+	## Indel Stats
  	if ( n.ind>0 ) {
- 		if ( n.ind==1 ) {
- 			FULL[[name]][,"HET_ind"] <- as.numeric( ind.raw[order(ind.raw[,"IID"]),7]==1 )
- 		}else{ FULL[[name]][,"HET_ind"] <- apply( ind.raw[order(ind.raw[,"IID"]),7:ncol(ind.raw)], 1, function(x) length(which(x==1)) ) }
- 	}else{ FULL[[name]][,"HET_ind"] <- 0 }
- 	 # How many Hom_Vars?
- 	if ( n.snp>0 ) {
- 		if ( n.snp==1 ) {
- 			FULL[[name]][,"HOM_VAR_snp"] <- as.numeric( snp.raw[order(snp.raw[,"IID"]),7]==2 )
- 		}else{ FULL[[name]][,"HOM_VAR_snp"] <- apply( snp.raw[order(snp.raw[,"IID"]),7:ncol(snp.raw)], 1, function(x) length(which(x==2)) ) }
- 	}else{ FULL[[name]][,"HOM_VAR_snp"] <- 0 }
- 	if ( n.ind>0 ) {
- 		if ( n.ind==1 ) {
- 			FULL[[name]][,"HOM_VAR_ind"] <- as.numeric( ind.raw[order(ind.raw[,"IID"]),7]==2 )
- 		}else{ FULL[[name]][,"HOM_VAR_ind"] <- apply( ind.raw[order(ind.raw[,"IID"]),7:ncol(ind.raw)], 1, function(x) length(which(x==2)) ) }
- 	}else{ FULL[[name]][,"HOM_VAR_ind"] <- 0 }
- 	 # What percent of variants were phased?
- 	hap.1.cols <- seq( which(colnames(hap)=="ALT")+1,ncol(hap),2)
- 	hap.2.cols <- seq( which(colnames(hap)=="ALT")+2,ncol(hap),2)
- 	 # SNP
- 	hap.snp <- hap[ which(hap$TYPE=="snp") , ]
- 	hap.snp.diffs <- hap.snp[,hap.1.cols] - hap.snp[,hap.2.cols]
- 	colnames(hap.snp.diffs) <- gsub( "_1","", colnames(hap.snp.diffs) )
- 	hap.snp.n.hets <- apply( hap.snp.diffs, 2, function(x) length(which(x!=0)) )
- 	FULL[[name]][,"PRC_PHAS_snp"] <- hap.snp.n.hets / FULL[[name]][,"HET_snp"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.snp.n.hets / FULL[[name]][,"HET_snp"]
- 	 # Indel
- 	hap.ind <- hap[ which(hap$TYPE=="ind") , ]
- 	hap.ind.diffs <- hap.ind[,hap.1.cols] - hap.ind[,hap.2.cols]
- 	colnames(hap.ind.diffs) <- gsub( "_1","", colnames(hap.ind.diffs) )
- 	hap.ind.n.hets <- apply( hap.ind.diffs, 2, function(x) length(which(x!=0)) )
- 	FULL[[name]][,"PRC_PHAS_ind"] <- hap.ind.n.hets / FULL[[name]][,"HET_ind"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.ind.n.hets / FULL[[name]][,"HET_ind"]
- 	 # Any
- 	hap.diffs <- hap[,hap.1.cols] - hap[,hap.2.cols]
- 	colnames(hap.diffs) <- gsub( "_1","", colnames(hap.diffs) )
- 	hap.n.hets <- apply( hap.diffs, 2, function(x) length(which(x!=0)) )
- 	 # How many Variants are on each Strand and Unphased?
- 	hap.snp.counts <- colSums(hap.snp[,8:ncol(hap.snp)])
- 	FULL[[name]][,"HAP1_snp"] <- hap.snp.counts[seq(1,2*n.samps,2)]
- 	FULL[[name]][,"HAP2_snp"] <- hap.snp.counts[seq(2,2*n.samps,2)]
- 	FULL[[name]][,"UNPH_snp"] <- FULL[[name]][,"HET_snp"] - hap.snp.n.hets
- 	hap.ind.counts <- colSums(hap.ind[,8:ncol(hap.ind)])
- 	FULL[[name]][,"HAP1_ind"] <- hap.ind.counts[seq(1,2*n.samps,2)]
- 	FULL[[name]][,"HAP2_ind"] <- hap.ind.counts[seq(2,2*n.samps,2)]
- 	FULL[[name]][,"UNPH_ind"] <- FULL[[name]][,"HET_ind"] - hap.ind.n.hets
- 	# SAMP <- "B012326"
-	# SAMP.hets.hap <- as.character( hap.snp[ which( hap.snp.diffs[,SAMP]!=0 ), "TAG" ])
-	# SAMP.hets.raw <- colnames(snp.raw)[ which( snp.raw[ which(snp.raw[,"IID"]==SAMP), ]==1 ) ]
-	# SAMP.hets.bim <- as.character( GTX[ which(GTX[,"RAW_TAG"] %in% SAMP.hets.raw), "TAG" ] )
- 	 # Which Samples have a Compound Het?
- 	hap.snp.comp.hets <- as.numeric( apply( hap.snp.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
- 	hap.ind.comp.hets <- as.numeric( apply( hap.ind.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
-  	hap.comp.hets <- as.numeric( apply( hap.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
-	FULL[[name]][,"COMP_HET_snp"] <- hap.snp.comp.hets
- 	FULL[[name]][,"COMP_HET_ind"] <- hap.ind.comp.hets
-	FULL[[name]][,"COMP_HET_any"] <- hap.comp.hets
+		# How many Hets & Hom_Vars?
+ 		FULL[[name]][,"HET_ind"] <- apply( IND[,shared.samps], 2, function(x) length(which(x==1)) )
+ 		FULL[[name]][,"HOM_VAR_ind"] <- apply( IND[,shared.samps], 2, function(x) length(which(x==2)) )
+		# What percent of variants were phased?
+		hap.1.cols <- hap.colnames.samp[seq(1,2*n.samps,2)]
+		hap.2.cols <- hap.colnames.samp[seq(2,2*n.samps,2)]
+	 	hap.ind.diffs <- IND[,hap.1.cols] - IND[,hap.2.cols]
+		hap.ind.n.hets <- apply( hap.ind.diffs, 2, function(x) length(which(x!=0)) )
+	 	FULL[[name]][,"N_PHAS_ind"] <- hap.ind.n.hets
+	 	FULL[[name]][,"PRC_PHAS_ind"] <- FULL[[name]][,"N_PHAS_ind"] / FULL[[name]][,"HET_ind"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.ind.n.hets / FULL[[name]][,"HET_ind"]
+	 	FULL[[name]][,"HAP1_ind"] <- colSums( IND[,hap.1.cols],na.rm=T )
+	 	FULL[[name]][,"HAP2_ind"] <- colSums( IND[,hap.2.cols],na.rm=T )
+	 	FULL[[name]][,"UNPH_ind"] <- FULL[[name]][,"HET_ind"] - FULL[[name]][,"N_PHAS_ind"]
+ 	}else{
+ 		FULL[[name]][,"HET_ind"] <- FULL[[name]][,"HOM_VAR_ind"] <- FULL[[name]][,"N_PHAS_ind"] <- FULL[[name]][,"HAP1_ind"] <- FULL[[name]][,"HAP2_ind"] <- FULL[[name]][,"UNPH_ind"] <- 0
+ 		FULL[[name]][,"PRC_PHAS_ind"] <- NA
+	}
 
- 	## Cohort - Exon ###################################
- 	print( "Compiling Cohort Stats (Exon)" )
- 	colnames.EX <- c("HET_snp","HOM_VAR_snp","PRC_PHAS_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","PRC_PHAS_ind","COMP_HET_ind","COMP_HET_any","HAP1_snp","HAP2_snp","UNPH_snp","HAP1_ind","HAP2_ind","UNPH_ind")
+	## Cohort - Exon ###################################
+ 	colnames.EX <- c("HET_snp","HOM_VAR_snp","N_PHAS_snp","PRC_PHAS_snp","HAP1_snp","HAP2_snp","UNPH_snp","COMP_HET_snp","HET_ind","HOM_VAR_ind","N_PHAS_ind","PRC_PHAS_ind","HAP1_ind","HAP2_ind","UNPH_ind","COMP_HET_ind","COMP_HET_any")
  	EXON[[name]] <- array( ,c(n.samps,length(colnames.EX)) )
  	rownames(EXON[[name]]) <- shared.samps
  	colnames(EXON[[name]]) <- colnames.EX
- 	exon.tag <- as.character( GTX[ which(GTX$LOC==4),"TAG"] )
- 	exon.tag.raw <- as.character( GTX[ which(GTX$LOC==4),"RAW_TAG"] )
- 	snp.raw.exon <- snp.raw[ ,c( 1:6,which(colnames(snp.raw)%in%exon.tag.raw) ) ]
- 	ind.raw.exon <- ind.raw[ ,c( 1:6,which(colnames(ind.raw)%in%exon.tag.raw) ) ]
- 	n.snp.exon <- ncol(snp.raw.exon)-6
- 	n.ind.exon <- ncol(ind.raw.exon)-6
- 	 # How many Hets?
+ 	## SNP Stats
  	if ( n.snp.exon>0 ) {
- 		if ( n.snp.exon==1 ) {
- 			EXON[[name]][,"HET_snp"] <- as.numeric( snp.raw.exon[order(snp.raw.exon[,"IID"]),7]==1 )
- 		}else{ EXON[[name]][,"HET_snp"] <- apply( snp.raw.exon[order(snp.raw.exon[,"IID"]),7:ncol(snp.raw.exon)], 1, function(x) length(which(x==1)) ) }
- 	}else{ EXON[[name]][,"HET_snp"] <- 0 }
+		# How many Hets & Hom_Vars?
+ 		EXON[[name]][,"HET_snp"] <- apply( SNP.exon[,shared.samps], 2, function(x) length(which(x==1)) )
+ 		EXON[[name]][,"HOM_VAR_snp"] <- apply( SNP.exon[,shared.samps], 2, function(x) length(which(x==2)) )
+		# What percent of variants were phased?
+		hap.1.cols <- hap.colnames.samp[seq(1,2*n.samps,2)]
+		hap.2.cols <- hap.colnames.samp[seq(2,2*n.samps,2)]
+	 	hap.snp.diffs <- SNP.exon[,hap.1.cols] - SNP.exon[,hap.2.cols]
+		hap.snp.n.hets <- apply( hap.snp.diffs, 2, function(x) length(which(x!=0)) )
+	 	EXON[[name]][,"N_PHAS_snp"] <- hap.snp.n.hets
+	 	EXON[[name]][,"PRC_PHAS_snp"] <- EXON[[name]][,"N_PHAS_snp"] / EXON[[name]][,"HET_snp"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.snp.n.hets / EXON[[name]][,"HET_snp"]
+	 	EXON[[name]][,"HAP1_snp"] <- colSums( SNP.exon[,hap.1.cols],na.rm=T )
+	 	EXON[[name]][,"HAP2_snp"] <- colSums( SNP.exon[,hap.2.cols],na.rm=T )
+	 	EXON[[name]][,"UNPH_snp"] <- EXON[[name]][,"HET_snp"] - EXON[[name]][,"N_PHAS_snp"]
+ 	}else{
+ 		EXON[[name]][,"HET_snp"] <- EXON[[name]][,"HOM_VAR_snp"] <- EXON[[name]][,"N_PHAS_snp"] <- EXON[[name]][,"HAP1_snp"] <- EXON[[name]][,"HAP2_snp"] <- EXON[[name]][,"UNPH_snp"] <- 0
+ 		EXON[[name]][,"PRC_PHAS_snp"] <- NA
+	}
+	## Indel Stats
  	if ( n.ind.exon>0 ) {
- 		if ( n.ind.exon==1 ) {
- 			EXON[[name]][,"HET_ind"] <- as.numeric( ind.raw.exon[order(ind.raw.exon[,"IID"]),7]==1 )
- 		}else{ EXON[[name]][,"HET_ind"] <- apply( ind.raw.exon[order(ind.raw.exon[,"IID"]),7:ncol(ind.raw.exon)], 1, function(x) length(which(x==1)) ) }
- 	}else{ EXON[[name]][,"HET_ind"] <- 0 }
- 	 # How many Hom_Vars?
- 	if ( n.snp.exon>0 ) {
- 		if ( n.snp.exon==1 ) {
- 			EXON[[name]][,"HOM_VAR_snp"] <- as.numeric( snp.raw.exon[order(snp.raw.exon[,"IID"]),7]==2 )
- 		}else{ EXON[[name]][,"HOM_VAR_snp"] <- apply( snp.raw.exon[order(snp.raw.exon[,"IID"]),7:ncol(snp.raw.exon)], 1, function(x) length(which(x==2)) ) }
- 	}else{ EXON[[name]][,"HOM_VAR_snp"] <- 0 }
- 	if ( n.ind.exon>0 ) {
- 		if ( n.ind.exon==1 ) {
- 			EXON[[name]][,"HOM_VAR_ind"] <- as.numeric( ind.raw.exon[order(ind.raw.exon[,"IID"]),7]==2 )
- 		}else{ EXON[[name]][,"HOM_VAR_ind"] <- apply( ind.raw.exon[order(ind.raw.exon[,"IID"]),7:ncol(ind.raw.exon)], 1, function(x) length(which(x==2)) ) }
- 	}else{ EXON[[name]][,"HOM_VAR_ind"] <- 0 }
-  	 # What percent of variants were phased?
- 	hap.1.cols <- seq( which(colnames(hap)=="ALT")+1,ncol(hap),2)
- 	hap.2.cols <- seq( which(colnames(hap)=="ALT")+2,ncol(hap),2)
- 	 # SNP
- 	hap.snp <- hap[ which(hap$TYPE=="snp") , ]
- 	hap.snp.exon <- hap.snp[ which(hap.snp[,"TAG"]%in%exon.tag), ]
- 	hap.snp.exon.diffs <- hap.snp.exon[,hap.1.cols] - hap.snp.exon[,hap.2.cols]
- 	colnames(hap.snp.exon.diffs) <- gsub( "_1","", colnames(hap.snp.exon.diffs) )
- 	hap.snp.exon.n.hets <- apply( hap.snp.exon.diffs, 2, function(x) length(which(x!=0)) )
- 	EXON[[name]][,"PRC_PHAS_snp"] <- hap.snp.exon.n.hets / EXON[[name]][,"HET_snp"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.snp.exon.n.hets / EXON[[name]][,"HET_snp"]
- 	 # Indel
-  	hap.ind <- hap[ which(hap$TYPE=="ind") , ]
- 	hap.ind.exon <- hap.ind[ which(hap.ind[,"TAG"]%in%exon.tag), ]
- 	hap.ind.exon.diffs <- hap.ind.exon[,hap.1.cols] - hap.ind.exon[,hap.2.cols]
- 	colnames(hap.ind.exon.diffs) <- gsub( "_1","", colnames(hap.ind.exon.diffs) )
- 	hap.ind.exon.n.hets <- apply( hap.ind.exon.diffs, 2, function(x) length(which(x!=0)) )
- 	EXON[[name]][,"PRC_PHAS_ind"] <- hap.ind.exon.n.hets / EXON[[name]][,"HET_ind"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.ind.exon.n.hets / EXON[[name]][,"HET_ind"]
- 	 # Any
- 	hap.exon.diffs <- hap.exon[,hap.1.cols] - hap.exon[,hap.2.cols]
- 	colnames(hap.exon.diffs) <- gsub( "_1","", colnames(hap.exon.diffs) )
- 	hap.exon.n.hets <- apply( hap.exon.diffs, 2, function(x) length(which(x!=0)) )
- 	 # How many Variants are on each Strand and Unphased?
- 	hap.snp.exon.counts <- colSums(hap.snp.exon[,8:ncol(hap.snp.exon)])
- 	EXON[[name]][,"HAP1_snp"] <- hap.snp.exon.counts[seq(1,2*n.samps,2)]
- 	EXON[[name]][,"HAP2_snp"] <- hap.snp.exon.counts[seq(2,2*n.samps,2)]
- 	EXON[[name]][,"UNPH_snp"] <- EXON[[name]][,"HET_snp"] - hap.snp.exon.n.hets
- 	hap.ind.exon.counts <- colSums(hap.ind.exon[,8:ncol(hap.ind.exon)])
- 	EXON[[name]][,"HAP1_ind"] <- hap.ind.exon.counts[seq(1,2*n.samps,2)]
- 	EXON[[name]][,"HAP2_ind"] <- hap.ind.exon.counts[seq(2,2*n.samps,2)]
- 	EXON[[name]][,"UNPH_ind"] <- EXON[[name]][,"HET_ind"] - hap.ind.exon.n.hets
- 	 # Which Samples have a Compound Het?
- 	hap.snp.exon.comp.hets <- as.numeric( apply( hap.snp.exon.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
- 	hap.ind.exon.comp.hets <- as.numeric( apply( hap.ind.exon.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
- 	hap.exon.comp.hets <- as.numeric( apply( hap.exon.diffs, 2, function(x) length(which( -1%in%x & 1%in%x ))>0 ) )
- 	EXON[[name]][,"COMP_HET_snp"] <- hap.snp.exon.comp.hets
- 	EXON[[name]][,"COMP_HET_ind"] <- hap.ind.exon.comp.hets
- 	EXON[[name]][,"COMP_HET_any"] <- hap.exon.comp.hets
+		# How many Hets & Hom_Vars?
+ 		EXON[[name]][,"HET_ind"] <- apply( IND.exon[,shared.samps], 2, function(x) length(which(x==1)) )
+ 		EXON[[name]][,"HOM_VAR_ind"] <- apply( IND.exon[,shared.samps], 2, function(x) length(which(x==2)) )
+		# What percent of variants were phased?
+		hap.1.cols <- hap.colnames.samp[seq(1,2*n.samps,2)]
+		hap.2.cols <- hap.colnames.samp[seq(2,2*n.samps,2)]
+	 	hap.ind.diffs <- IND.exon[,hap.1.cols] - IND.exon[,hap.2.cols]
+		hap.ind.n.hets <- apply( hap.ind.diffs, 2, function(x) length(which(x!=0)) )
+	 	EXON[[name]][,"N_PHAS_ind"] <- hap.ind.n.hets
+	 	EXON[[name]][,"PRC_PHAS_ind"] <- EXON[[name]][,"N_PHAS_ind"] / EXON[[name]][,"HET_ind"] # length(intersect(SAMP.hets.hap,SAMP.hets.bim)) / length(SAMP.hets.bim) # hap.ind.n.hets / EXON[[name]][,"HET_ind"]
+	 	EXON[[name]][,"HAP1_ind"] <- colSums( IND.exon[,hap.1.cols],na.rm=T )
+	 	EXON[[name]][,"HAP2_ind"] <- colSums( IND.exon[,hap.2.cols],na.rm=T )
+	 	EXON[[name]][,"UNPH_ind"] <- EXON[[name]][,"HET_ind"] - EXON[[name]][,"N_PHAS_ind"]
+ 	}else{
+ 		EXON[[name]][,"HET_ind"] <- EXON[[name]][,"HOM_VAR_ind"] <- EXON[[name]][,"N_PHAS_ind"] <- EXON[[name]][,"HAP1_ind"] <- EXON[[name]][,"HAP2_ind"] <- EXON[[name]][,"UNPH_ind"] <- 0
+ 		EXON[[name]][,"PRC_PHAS_ind"] <- NA
+	}
 
 	####################################################
-	## PLOT GENE & PHASING STATS #######################
+	## PLOT PHASING STATS ##############################
+	print(paste( "Plot Phased Stats",round(proc.time()-start_time,2)[3] ))
 	 # FULL: Boxplot HET_snp & HOM_VAR_snp & HET_ind & HOM_VAR_ind all in one
 	 # EXON: Boxplot HET_snp & HOM_VAR_snp & HET_ind & HOM_VAR_ind all in one
 	 # FULL: PRC_PHAS_snp & PRC_PHAS_ind & PRC_COMP_HET_snp & PRC_COMP_HET_ind
 	 # EXON: PRC_PHAS_snp & PRC_PHAS_ind & PRC_COMP_HET_snp & PRC_COMP_HET_ind
-	print( "Compiling Some Stats" )
+
 	## Calculate % Compound Hets
 	 # Full
-	PRC.dat <- FULL[[name]][,c("PRC_PHAS_snp","PRC_PHAS_ind")]
-	PRC_COMP_HET <- array(,c(2,2)) ; rownames(PRC_COMP_HET) <- c(0,1)
-	PRC_COMP_HET_snp <- table( FULL[[name]][,"COMP_HET_snp"] ) / nrow(FULL[[name]])
-	PRC_COMP_HET_ind <- table( FULL[[name]][,"COMP_HET_ind"] ) / nrow(FULL[[name]])
-	PRC_COMP_HET[names(PRC_COMP_HET_snp),1] <- PRC_COMP_HET_snp[names(PRC_COMP_HET_snp)]
-	PRC_COMP_HET[names(PRC_COMP_HET_ind),2] <- PRC_COMP_HET_ind[names(PRC_COMP_HET_ind)]
-	PRC.dat.full <- PRC.dat
-	PRC_COMP_HET.full <- PRC_COMP_HET
+	PRC.dat.full <- FULL[[name]][,c("PRC_PHAS_snp","PRC_PHAS_ind")]
+	PRC_COMP_HET.full <- array(,c(2,2)) ; rownames(PRC_COMP_HET.full) <- c(0,1) ; colnames(PRC_COMP_HET.full) <- c("snp","ind")
+	PRC_COMP_HET.full[,"snp"] <- c( length(which(FULL[[name]][,"COMP_HET_snp"]==0)),length(which(FULL[[name]][,"COMP_HET_snp"]==1)) ) / n.samps
+	PRC_COMP_HET.full[,"ind"] <- c( length(which(FULL[[name]][,"COMP_HET_ind"]==0)),length(which(FULL[[name]][,"COMP_HET_ind"]==1)) ) / n.samps
 	 # Exon
-	PRC.dat <- EXON[[name]][,c("PRC_PHAS_snp","PRC_PHAS_ind")]
-	PRC_COMP_HET <- array(,c(2,2)) ; rownames(PRC_COMP_HET) <- c(0,1)
-	PRC_COMP_HET_snp <- table( EXON[[name]][,"COMP_HET_snp"] ) / nrow(EXON[[name]])
-	PRC_COMP_HET_ind <- table( EXON[[name]][,"COMP_HET_ind"] ) / nrow(EXON[[name]])
-	PRC_COMP_HET[names(PRC_COMP_HET_snp),1] <- PRC_COMP_HET_snp[names(PRC_COMP_HET_snp)]
-	PRC_COMP_HET[names(PRC_COMP_HET_ind),2] <- PRC_COMP_HET_ind[names(PRC_COMP_HET_ind)]
-	PRC.dat.exon <- PRC.dat
-	PRC_COMP_HET.exon <- PRC_COMP_HET
-	## Compile Percent w/ Compound Het
-	GENE[gtx,"p.COMP_HET_snp"] <- PRC_COMP_HET.full["1",1]
-	GENE[gtx,"p.COMP_HET_ind"] <- PRC_COMP_HET.full["1",2]
-	GENE[gtx,"p.COMP_HET_snp.ex"] <- PRC_COMP_HET.exon["1",1]
-	GENE[gtx,"p.COMP_HET_ind.ex"] <- PRC_COMP_HET.exon["1",2]
+	PRC.dat.exon <- EXON[[name]][,c("PRC_PHAS_snp","PRC_PHAS_ind")]
+	PRC_COMP_HET.exon <- array(,c(2,2)) ; rownames(PRC_COMP_HET.exon) <- c(0,1) ; colnames(PRC_COMP_HET.exon) <- c("snp","ind")
+	PRC_COMP_HET.exon[,"snp"] <- c( length(which(EXON[[name]][,"COMP_HET_snp"]==0)),length(which(EXON[[name]][,"COMP_HET_snp"]==1)) ) / n.samps
+	PRC_COMP_HET.exon[,"ind"] <- c( length(which(EXON[[name]][,"COMP_HET_ind"]==0)),length(which(EXON[[name]][,"COMP_HET_ind"]==1)) ) / n.samps
 
-	print( "Plotting Stats" )	
+	## Compile Percent w/ Compound Het
+	GENE[gtx,"p.COMP_HET_snp"] <- round( PRC_COMP_HET.full["1","snp"] ,5)
+	GENE[gtx,"p.COMP_HET_ind"] <- round( PRC_COMP_HET.full["1","ind"] ,5)
+	GENE[gtx,"p.COMP_HET_snp.ex"] <- round( PRC_COMP_HET.exon["1","snp"] ,5)
+	GENE[gtx,"p.COMP_HET_ind.ex"] <- round( PRC_COMP_HET.exon["1","ind"] ,5)
+
 	if ( LIM[2]>4 | PLOT_RUNIF<PLOT_FRACTION ) {
 		jpeg( paste(PathToOut,"/Plots/Gene_Stats_",name,".jpeg",sep=""), height=1600,width=2400, pointsize=32)
 		par(mfrow=c(2,2))
 		 # FULL: Boxplot
 		COLS.cnt <- c("springgreen3","springgreen1","gold3","gold1")
+		COLS.prc <- c("chocolate2","steelblue2")
 		CNT.dat <- FULL[[name]][,c("HET_snp","HOM_VAR_snp","HET_ind","HOM_VAR_ind")]
 		boxplot( CNT.dat, main=paste("Number Variants:",name), xlab="Category",ylab="# Vars in Individual", col=COLS.cnt, pch="" )
 		for ( i in 1:4 ) { points( jitter(rep(i,nrow(CNT.dat)),amount=.1), CNT.dat[,i], pch="+" ) }
@@ -672,7 +670,6 @@ for ( gtx in 1:n.gtx ) {
 		boxplot( CNT.dat, main=paste("Number Exonic Variants:",name), xlab="Category",ylab="# Exonic Vars in Individual", col=COLS.cnt, pch="" )
 		for ( i in 1:4 ) { points( jitter(rep(i,nrow(CNT.dat)),amount=.1), CNT.dat[,i], pch="+" ) }
 		 # FULL: Perc
-		COLS.prc <- c("slateblue3","chocolate2","steelblue2")
 		plot(0,0,type="n", xlim=c(0,4.5),ylim=c(0,1), main=paste("Percent Phased & Compound Hets:",name), xlab="",ylab="", xaxt="n",yaxt="n")
 		abline( h=seq(0,1,.1), lty=2,lwd=1,col="grey50" )
 		axis( 2, at=seq(0,1,.2) )
@@ -680,7 +677,7 @@ for ( gtx in 1:n.gtx ) {
 		axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
 		boxplot( PRC.dat.full, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.cnt[c(1,3)], pch="" )
 		for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat.full)),amount=.1), PRC.dat.full[,i], pch="+" ) }
-		barplot( PRC_COMP_HET.full, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
+		barplot( PRC_COMP_HET.full, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc )
 		abline( v=2.25 )
 		 # EXON: Perc
 		plot(0,0,type="n", xlim=c(0,4.5),ylim=c(0,1), main=paste("Percent Phased & Compound Hets:",name), xlab="",ylab="", xaxt="n",yaxt="n")
@@ -690,71 +687,55 @@ for ( gtx in 1:n.gtx ) {
 		axis( 1, at=c(.5,1.5,3,4), labels=c("%Ph-SNP","%Ph-IND","%CH-SNP","%CH-IND") )
 		boxplot( PRC.dat.exon, at=c(.5,1.5), xaxt="n",yaxt="n", add=T, col=COLS.cnt[c(1,3)], pch="" )
 		for ( i in 1:2 ) { points( jitter(rep(i-.5,nrow(PRC.dat.exon)),amount=.1), PRC.dat.exon[,i], pch="+" ) }
-		barplot( PRC_COMP_HET.exon, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc[2:3] )
+		barplot( PRC_COMP_HET.exon, width=.8, space=c(3.25,.25), add=T, xaxt="n",yaxt="n", col=COLS.prc )
 		abline( v=2.25 )
+		legend( "bottomright",fill=COLS.prc,legend=c("No Comp_Het","Comp_Het") )
 		dev.off()
 	} # Close Compile Plot "IF"
 
 	####################################################
 	## UNIQUE HAPLOTYPES ###############################
-	print( "Compiling Unique Haplotypes" )
+	print(paste( "Analyzing Unique Haplotypes",round(proc.time()-start_time,2)[3] ))
 	## Full
-	N_hap <- ncol(hap)
-	MAF <- rowMeans( data.matrix(hap[8:N_hap]) )
-	UNIQ.all <- apply( hap[8:N_hap], 2, function(x) paste( x, collapse="" ) )
-	TAB.uniq.all <- table( UNIQ.all )
-	# sort( unname( TAB.uniq.all) ,decreasing=T )
-	# hist( TAB.uniq.all, plot=F )$counts
-	MAF.which.01 <- which( MAF > .01 )
+	UNIQ.full.all <- apply( VAR[which(VAR$PHAS==1),hap.colnames.samp], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.full.all <- table( UNIQ.full.all )
 	 # MAF .01
-	hap.maf.01 <- hap[ MAF.which.01, ]
-	UNIQ.maf.01 <- apply( hap.maf.01[8:N_hap], 2, function(x) paste( x, collapse="" ) )
-	TAB.uniq.maf.01 <- table( UNIQ.maf.01 )
+	UNIQ.full.maf.01 <- apply( VAR[which(VAR$PHAS==1 & VAR$MAF_raw>.01),hap.colnames.samp], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.full.maf.01 <- table( UNIQ.full.maf.01 )
 	 # MAF .05
-	MAF.which.05 <- which( MAF > .05 )
-	hap.maf.05 <- hap[ MAF.which.05, ]
-	UNIQ.maf.05 <- apply( hap.maf.05[8:N_hap], 2, function(x) paste( x, collapse="" ) )
-	TAB.uniq.maf.05 <- table( UNIQ.maf.05 )
+	UNIQ.full.maf.05 <- apply( VAR[which(VAR$PHAS==1 & VAR$MAF_raw>.05),hap.colnames.samp], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.full.maf.05 <- table( UNIQ.full.maf.05 )
 	## Exon
-	N_hap.exon <- ncol(hap.exon)
-	MAF.exon <- rowMeans( data.matrix(hap.exon[8:N_hap.exon]) )
-	VARS.exon.all <- hap.exon$TAG
-	UNIQ.exon.all <- apply( hap.exon[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
-	TAB.exon.uniq.all <- table( UNIQ.exon.all )
-	 # MAF.exon .01
-	MAF.exon.which.01 <- which( MAF.exon > .01 )
-	hap.exon.maf.01 <- hap.exon[ MAF.exon.which.01, ]
-	UNIQ.exon.maf.01 <- apply( hap.exon.maf.01[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
-	TAB.exon.uniq.maf.01 <- table( UNIQ.exon.maf.01 )
-	 # MAF.exon .05
-	MAF.exon.which.05 <- which( MAF.exon > .05 )
-	hap.exon.maf.05 <- hap.exon[ MAF.exon.which.05, ]
-	UNIQ.exon.maf.05 <- apply( hap.exon.maf.05[8:N_hap.exon], 2, function(x) paste( x, collapse="" ) )
-	TAB.exon.uniq.maf.05 <- table( UNIQ.exon.maf.05 )
-
+	UNIQ.exon.all <- apply( VAR.exon[which(VAR.exon$PHAS==1),hap.colnames.samp], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.exon.all <- table( UNIQ.exon.all )
+	 # MAF .01
+	UNIQ.exon.maf.01 <- apply( VAR.exon[which(VAR.exon$PHAS==1 & VAR.exon$MAF_raw>.01),hap.colnames.samp], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.exon.maf.01 <- table( UNIQ.exon.maf.01 )
+	 # MAF .05
+	UNIQ.exon.maf.05 <- apply( VAR.exon[which(VAR.exon$PHAS==1 & VAR.exon$MAF_raw>.05),hap.colnames.samp], 2, function(x) paste( x, collapse="" ) )
+	TAB.uniq.exon.maf.05 <- table( UNIQ.exon.maf.05 )
 	## Plot it
-	COLS.full <- paste("steelblue",1:3,sep="")
-	COLS.exon <- paste("slateblue",1:3,sep="") # c("tomato2","navyblue","gold1")
+	COLS.full <- colorRampPalette(c("white","steelblue2","black"))(5)[2:4]
+	COLS.exon <- colorRampPalette(c("white","slateblue2","black"))(5)[2:4]
 	if ( PLOT_RUNIF<PLOT_FRACTION ) {
-		print( "Plotting Unique Haplotypes" )
 		## Barplot Haplotype Frequencies
 		jpeg( paste(PathToOut,"/Plots/Gene_HaploDistrib_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
 		par(mfrow=c(2,3))
 		 # Full
-		barplot( sort(TAB.uniq.all,decreasing=T), main="Unique Haplotype Freq (Full/All)",xlab="Haplotype",las=2,col=COLS.full[1],border=NA,xaxt="n" )
-		barplot( sort(TAB.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Full/MAF>1%)",xlab="Haplotype",las=2,col=COLS.full[2],border=NA,xaxt="n" )
-		barplot( sort(TAB.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Full/MAF>5%)",xlab="Haplotype",las=2,col=COLS.full[3],border=NA,xaxt="n" )
+		barplot( sort(TAB.uniq.full.all,decreasing=T), main="Unique Haplotype Freq (Full/All)",xlab="Haplotype",las=2,col=COLS.full[1],border=NA,xaxt="n" )
+		barplot( sort(TAB.uniq.full.maf.01,decreasing=T), main="Unique Haplotype Freq (Full/MAF>1%)",xlab="Haplotype",las=2,col=COLS.full[2],border=NA,xaxt="n" )
+		barplot( sort(TAB.uniq.full.maf.05,decreasing=T), main="Unique Haplotype Freq (Full/MAF>5%)",xlab="Haplotype",las=2,col=COLS.full[3],border=NA,xaxt="n" )
 		 # Exon
-		barplot( sort(TAB.exon.uniq.all,decreasing=T), main="Unique Haplotype Freq (Exon/All)",xlab="Haplotype",las=2,col=COLS.exon[1],border=NA )
-		barplot( sort(TAB.exon.uniq.maf.01,decreasing=T), main="Unique Haplotype Freq (Exon/1%)",xlab="Haplotype",las=2,col=COLS.exon[2],border=NA )
-		barplot( sort(TAB.exon.uniq.maf.05,decreasing=T), main="Unique Haplotype Freq (Exon/5%)",xlab="Haplotype",las=2,col=COLS.exon[3],border=NA )
+		barplot( sort(TAB.uniq.exon.all,decreasing=T), main="Unique Haplotype Freq (Exon/All)",xlab="Haplotype",las=2,col=COLS.exon[1],border=NA )
+		barplot( sort(TAB.uniq.exon.maf.01,decreasing=T), main="Unique Haplotype Freq (Exon/1%)",xlab="Haplotype",las=2,col=COLS.exon[2],border=NA )
+		barplot( sort(TAB.uniq.exon.maf.05,decreasing=T), main="Unique Haplotype Freq (Exon/5%)",xlab="Haplotype",las=2,col=COLS.exon[3],border=NA )
 		dev.off()
 		## Heatmap Showing Unique Haplotypes
-		HAPLOS.arr <- matrix(as.numeric(unlist(sapply( names(TAB.exon.uniq.all), function(x) strsplit( x, ""), simplify="array" ))),nrow=length(TAB.exon.uniq.all),byrow=T )
+		HAPLOS.arr <- matrix(as.numeric(unlist(sapply( names(TAB.uniq.exon.all), function(x) strsplit( x, ""), simplify="array" ))),nrow=length(TAB.uniq.exon.all),byrow=T )
 		if ( all(dim(HAPLOS.arr)>=2) ) {
-			colnames(HAPLOS.arr) <- VARS.exon.all
-			MAFS.cols <- colorRampPalette(c("white","deepskyblue3"))(100)[ceiling(100*MAF.exon)]
-			HAPLOS.cols <- colorRampPalette(c("white","chartreuse3"))(max(TAB.exon.uniq.all))[TAB.exon.uniq.all]
+			colnames(HAPLOS.arr) <- VAR.exon$TAG[which(VAR.exon$PHAS==1)]
+			MAFS.cols <- colorRampPalette(c("white","firebrick2","black"))(100)[ceiling(100*VAR.exon$MAF_raw[which(VAR.exon$PHAS==1)])]
+			HAPLOS.cols <- colorRampPalette(c("white","chartreuse3"))(max(TAB.uniq.exon.all))[TAB.uniq.exon.all]
 			jpeg( paste(PathToOut,"/Plots/Gene_HaploUniq_",name,".jpeg",sep=""), height=1400,width=2000, pointsize=30)
 			heatmap.2( HAPLOS.arr, main="Unique Exonic Haplotypes",xlab="Variant Position",ylab="Haplotype",RowSideColors=HAPLOS.cols,ColSideColors=MAFS.cols,scale="none",trace="none",Rowv=T,Colv=F,dendrogram="row",col=c("black",COLS.exon[1]), lhei=c(1,6),lwid=c(1,6),margins=c(7,5) )
 			dev.off()	
@@ -763,43 +744,30 @@ for ( gtx in 1:n.gtx ) {
 	
 	####################################################
 	## ASSOCIATION w/ PHENOTYPE ########################
-	print( "Analyzing Associations w/ Phenotype" )
+	print(paste( "Analyzing Phenotype Associations",round(proc.time()-start_time,2)[3] ))
 	if ( file.exists(PathToPheno) ) {
-		MOD.covs <- lm( Pheno ~ . , data=PC.2[,-1] )
+		MOD.covs <- lm( Pheno ~ . , data=PC[,-1] )
 		RES.covs <- resid( MOD.covs )
-		RES.covs.2 <- data.frame( IID=PC.2[,1],RES=RES.covs )
+		RES.covs.2 <- data.frame( IID=PC[,1],RES=RES.covs )
 
 		## Unique Haplotypes vs Phenotype ##
-		if ( nrow(hap.exon)>1 ) {
-			Samps <- unique( PC.2$IID )
-			N.Samps <- length(Samps)
+		if ( length(TAB.uniq.exon.all)>1 ) {
 
 			## Get Haplotypes for each Person
-			HAPLOS.samp <- array( ,c(N.Samps,2) )
-			colnames(HAPLOS.samp) <- paste("Hap",1:2,sep="_")
-			rownames(HAPLOS.samp) <- Samps
-			for ( s in 1:N.Samps ) {
-				samp <- Samps[s]
-				temp_columns <- grep( samp, colnames(hap.exon) )
-				HAPLOS.samp[s,1] <- paste( hap.exon[,temp_columns[1]],collapse="" )
-				HAPLOS.samp[s,2] <- paste( hap.exon[,temp_columns[2]],collapse="" )
-				HAPLOS.samp[s,] <- sort(HAPLOS.samp[s,],decreasing=F)
-			}
+			HAPLOS.samp <- cbind( UNIQ.exon.all[seq(1,2*n.samps,2)], UNIQ.exon.all[seq(2,2*n.samps,2)] )
+			HAPLOS.samp <- t(apply( HAPLOS.samp, 1, function(x) sort(x) ))
 			# Put Clinical & Haplotype Data Together
-			HAPLOS.samp.2 <- data.frame( IID=rep(rownames(HAPLOS.samp),2), HAP=c(HAPLOS.samp[,1],HAPLOS.samp[,2]), stringsAsFactors=F )
-			PC.haps <- merge( PC.2, HAPLOS.samp.2, by="IID" )
+			HAPLOS.samp.2 <- data.frame( IID=rep(shared.samps,2), HAP=c(HAPLOS.samp[,1],HAPLOS.samp[,2]), stringsAsFactors=F )
+			PC.haps <- merge( PC, HAPLOS.samp.2, by="IID" )
 			RES.covs.3 <- merge( RES.covs.2, HAPLOS.samp.2, by="IID" )
 			# Specify "Rare" Haplotypes
-			HAPLOS.rare <- names( which(TAB.exon.uniq.all<=5) )
-			HAPLOS.samp.r <- HAPLOS.samp
-			HAPLOS.samp.r[which(HAPLOS.samp.r[,"Hap_1"] %in% HAPLOS.rare),"Hap_1"] <- "Rare"
-			HAPLOS.samp.r[which(HAPLOS.samp.r[,"Hap_2"] %in% HAPLOS.rare),"Hap_2"] <- "Rare"
+			HAPLOS.rare <- names( which(TAB.uniq.exon.all<=10) )
 			RES.covs.3[which(RES.covs.3[,"HAP"] %in% HAPLOS.rare),"HAP"] <- "Rare"
+			PC.haps[which(PC.haps[,"HAP"] %in% HAPLOS.rare),"HAP"] <- "Rare"
 			# Run Analyses
 			MOD.haps <- lm( Pheno ~ . , data=PC.haps[,-1] )
 			P.haps <- anova(MOD.haps)["HAP","Pr(>F)"]
 			GENE[gtx,"P_HAP"] <- P.haps
-			MOD.haps.res <- lm( RES ~ HAP , data=RES.covs.3[,-1] )
 			# Plot Residuals from Covariates vs Haplotype
 			jpeg( paste(PathToOut,"/Plots/Gene_HaploAssoc_",name,".jpeg",sep=""), height=1700,width=2000, pointsize=30)
 			par(mfrow=c(2,1))
@@ -813,8 +781,8 @@ for ( gtx in 1:n.gtx ) {
 		}
 
 		## Compound Hets vs Phenotype ##
-		PC.ch <- merge( PC.2, EXON[[name]], by.x="IID",by.y="row.names" )
-		PC.ch.2 <- PC.ch[,c(colnames(PC.2),"COMP_HET_any")]
+		PC.ch <- merge( PC, EXON[[name]], by.x="IID",by.y="row.names" )
+		PC.ch.2 <- PC.ch[,c(colnames(PC),"COMP_HET_any")]
 		if ( length(unique( PC.ch.2[,"COMP_HET_any"] ))>1 ) {
 			MOD.ch <- lm( Pheno ~ . , data=PC.ch.2[,-1] )
 			P.ch <- anova(MOD.ch)["COMP_HET_any","Pr(>F)"]
@@ -835,9 +803,9 @@ for ( gtx in 1:n.gtx ) {
 
 		## Burden vs Phenotype ##
 		 # Full
-		PC.burd.full <- merge( PC.2, FULL[[name]], by.x="IID",by.y="row.names" )
+		PC.burd.full <- merge( PC, FULL[[name]], by.x="IID",by.y="row.names" )
 		SCORE.var <- PC.burd.full[,"HET_snp"] + PC.burd.full[,"HOM_VAR_snp"] + PC.burd.full[,"HET_ind"] + PC.burd.full[,"HOM_VAR_ind"]
-		PC.burd.full.2 <- cbind( PC.burd.full[,colnames(PC.2)], SCORE.var )
+		PC.burd.full.2 <- cbind( PC.burd.full[,colnames(PC)], SCORE.var )
 		if ( length(unique( PC.burd.full.2[,"SCORE.var"] ))>1 ) {
 			MOD.burd.full <- lm( Pheno ~ . , data=PC.burd.full.2[,-1] )
 			P.burd.full <- anova(MOD.burd.full)["SCORE.var","Pr(>F)"]
@@ -850,14 +818,14 @@ for ( gtx in 1:n.gtx ) {
 				plot( RES ~ as.numeric(SCORE.var), data=RES.burd.full.3, col=COLS.full[1],main=paste("Residuals vs Burden Score (Full):",name),xlab="Burden Score",ylab="Phenotype Residuals vs Covariates",pch="+" )
 				abline( h=seq(-5,5,1),lty=2,col="grey50" )
 				abline( MOD.burd.full.res, lty=1,lwd=2,col=COLS.full[3] )
-				text( quantile(RES.burd.full.3$SCORE.var,.2),quantile(RES.burd.full.3$RES,.1), label=paste("P=",formatC(P.burd.full,format="e",digits=2)) )
+				text( quantile(RES.burd.full.3$SCORE.var,.5),quantile(RES.burd.full.3$RES,.01), label=paste("P=",formatC(P.burd.full,format="e",digits=2)) )
 				dev.off()
 			}
 		}
 		 # Exon
-		PC.burd.exon <- merge( PC.2, EXON[[name]], by.x="IID",by.y="row.names" )
+		PC.burd.exon <- merge( PC, EXON[[name]], by.x="IID",by.y="row.names" )
 		SCORE.var <- PC.burd.exon[,"HET_snp"] + PC.burd.exon[,"HOM_VAR_snp"] + PC.burd.exon[,"HET_ind"] + PC.burd.exon[,"HOM_VAR_ind"]
-		PC.burd.exon.2 <- cbind( PC.burd.exon[,colnames(PC.2)], SCORE.var )
+		PC.burd.exon.2 <- cbind( PC.burd.exon[,colnames(PC)], SCORE.var )
 		if ( length(unique( PC.burd.exon.2[,"SCORE.var"] ))>1 ) {
 			MOD.burd.exon <- lm( Pheno ~ . , data=PC.burd.exon.2[,-1] )
 			P.burd.exon <- anova(MOD.burd.exon)["SCORE.var","Pr(>F)"]
@@ -870,7 +838,7 @@ for ( gtx in 1:n.gtx ) {
 				TEMP <- plot( RES ~ as.numeric(SCORE.var), data=RES.burd.exon.3, col=COLS.exon[1],main=paste("Residuals vs Burden Score (Exon):",name),xlab="Burden Score",ylab="Phenotype Residuals vs Covariates",pch="+" )
 				abline( h=seq(-5,5,1),lty=2,col="grey50" )
 				abline( MOD.burd.exon.res, lty=1,lwd=2,col=COLS.exon[3] )
-				text( quantile(RES.burd.exon.3$SCORE.var,.2),quantile(RES.burd.exon.3$RES,.1), label=paste("P=",formatC(P.burd.exon,format="e",digits=2)) )
+				text( quantile(RES.burd.exon.3$SCORE.var,.5),quantile(RES.burd.exon.3$RES,.01), label=paste("P=",formatC(P.burd.exon,format="e",digits=2)) )
 				dev.off()
 			}
 		}
@@ -879,6 +847,7 @@ for ( gtx in 1:n.gtx ) {
 	####################################################
 	## EVERY FEW ITERATIONS, SAVE TABLES/DATA ##########
 	if ( gtx%%50==0 ) {
+		print(paste( "Writing Updated Output Tables",round(proc.time()-start_time,2)[3] ))
 		## Save Table that Gene Data are Compiled In
 		write.table( GENE[1:gtx,], paste(PathToOut,"/Gene_Stats.txt",sep=""), sep="\t",row.names=F,col.names=T,quote=F )
 
@@ -895,7 +864,7 @@ for ( gtx in 1:n.gtx ) {
 ## SAVE COMPILED DATA #########################################
 ###############################################################
 
-print("Writing Tables")
+print(paste( "Writing Final Output Tables",round(proc.time()-start_time,2)[3] ))
 
 ## Save Table that Gene Data are Compiled In
 write.table( GENE, paste(PathToOut,"/Gene_Stats.txt",sep=""), sep="\t",row.names=F,col.names=T,quote=F )

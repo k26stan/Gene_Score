@@ -80,6 +80,7 @@ VCF_TOOLS=/projects/janssen/Tools/vcftools_0.1.11/bin/vcftools
 PLINK=/projects/janssen/Tools/plink_linux_x86_64/plink 
 GENE_TABLE=/home/kstandis/HandyStuff/GG-Gene_Names_DB.txt
 eQTL_TABLE=/projects/janssen/ANNOTATE/gtex_eqtl/Whole_Blood.portal.eqtl.sorted.gz
+CADD_TABLE=/projects/janssen/ANNOTATE/C-Shendure/whole_genome_SNVs.tsv.gz
 
 ## Custom Scripts
 s2_COMPILE_GENE_COORDS_R=/projects/janssen/Phased/SCRIPTS/2-Compile_Gene_Coords.R
@@ -229,6 +230,8 @@ tabix ${eQTL_TABLE} chr${chr}:${start}-${stop} >> ${OUT_PATH_GENE}/eQTLs.txt
 zcat ${eQTL_TABLE} | awk -v var="$gene" '$5 == var {print}' >> ${OUT_PATH_GENE}/eQTLs.txt
 cat ${OUT_PATH_GENE}/eQTLs.txt | sort -k3 -n | uniq > ${OUT_PATH_GENE}/eQTLs.2.txt
 mv ${OUT_PATH_GENE}/eQTLs.2.txt ${OUT_PATH_GENE}/eQTLs.txt
+ # Pull out CADD scores for desired locations
+tabix ${CADD_TABLE} chr${chr}:${start}-${stop} >> ${OUT_PATH_GENE}/CADD.txt
 fi
 
 done # Close Gene_Transcript Loop

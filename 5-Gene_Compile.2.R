@@ -186,9 +186,10 @@ for ( gtx in 1562:n.gtx ) {
 	}
 
 	## Load Annotation File
-	# annot <- read.table( paste(PathToGenes,name,"/Annots_Short.txt",sep=""), sep="\t",header=T )
-	# annot <- data.frame( TAG=paste(gsub("chr","",as.character(annot$Chromosome)),as.character(annot$End),sep="_"), annot)
-	# eqtls <- read.table( paste(PathToGenes,name,"/eQTLs.txt",sep=""), sep="",header=T )
+	# annot.l <- read.table( paste(PathToGenes,name,"/Annots_Short.txt",sep=""), sep="\t",header=T )
+	# annot <- data.frame( TAG=paste(gsub("chr","",as.character(annot.l$Chromosome)),as.character(annot.l$End),sep="_"), annot.l)
+	# eqtls.l <- read.table( paste(PathToGenes,name,"/eQTLs.txt",sep=""), sep="",header=T )
+	# cadd.l <- read.table( paste(PathToGenes,name,"/CADD.txt",sep=""), sep="",header=F )
 
 	####################################################
 	## FILTER/ORGANIZE SOME TABLES #####################

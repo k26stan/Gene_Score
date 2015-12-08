@@ -17,6 +17,8 @@ LINE <- commandArgs(trailingOnly = TRUE)
 # LINE <- c( "/projects/janssen/Phased/20150218_Run","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
 # LINE <- c( "/projects/janssen/Phased/20150603_Test_Genes","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
 # LINE <- c( "/projects/janssen/Phased/20150604_Chr22","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
+# LINE <- c( "/projects/janssen/Phased/20151016_DEL_CAND_Genes","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
+# LINE <- c( "/projects/janssen/Phased/20151106_GeneEnrichment_CANDS","/projects/janssen/ASSOCIATION/PH-PHENOTYPES/LT8_DEL_MNe_MN.txt","DAS_BL_MN,PC1,PC2" )
 PathToOut <- LINE[1]
 PathToPheno <- LINE[2]
 Cov_List <- LINE[3]
@@ -53,6 +55,9 @@ if ( file.exists( PathToPheno ) ) {
 	Cov_List.sp <- strsplit( Cov_List, "," )[[1]]
 	COVS <- COVS.l[, c("IID",Cov_List.sp) ]
 	# Merge Phenotype/Covariate Files
+	if ( "pheno"%in%colnames(PHENO) ) { pheno_colname <- "pheno" }
+	if ( "Pheno"%in%colnames(PHENO) ) { pheno_colname <- "Pheno" }
+	colnames(PHENO)[which(colnames(PHENO)==pheno_colname)] <- "Pheno"
 	PC <- merge( x=PHENO[,c("IID","Pheno")], y=COVS, by="IID" )
 	PC.2 <- PC
 	PC.2[,"IID"] <- unlist(strsplit( as.character(PC$IID),"-"))[seq(1,2*nrow(PC),2)]
@@ -105,6 +110,7 @@ hap.colnames <- c("CHR","SNP","BP","REF","ALT", paste( rep(hap.samps, rep(2,n.sa
 ## LOOP THROUGH GENES #########################################
 ###############################################################
 
+
 ## Set up Objects to Compile
  # Basic Gene Info
 cats.COOR <- c("GTX","CHR","TX_S","TX_E","CD_S","CD_E","EX_S","EX_E","n.EX" )
@@ -129,9 +135,12 @@ GENE[,"n.EX"] <- EX_COUNT
 FULL <- EXON <- DAMG <- list()
 
 PLOT_FRACTION <- 1/50
+PLOT_FRACTION <- 1
 start_time <- proc.time()
 ## LOOP START ######################################
 for ( gtx in 1:n.gtx ) {
+for ( gtx in grep("CYP",GTX_LIST) ) {
+for ( gtx in grep("SYCE",GTX_LIST) ) {
 # for ( gtx in 401:n.gtx ) {
 # for ( gtx in 1751:n.gtx ) {
 	# gtx <- grep( "GRIN2B", GTX_LIST )
